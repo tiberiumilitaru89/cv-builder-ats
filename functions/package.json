@@ -1,0 +1,17 @@
+{
+  "name": "cv-builder-functions",
+  "description": "Cloud Functions for CV Builder Pro",
+  "dependencies": {
+    "@sparticuz/chromium": "^119.0.0",
+    "cors": "^2.8.5",
+    "firebase-admin": "^14.5.0",
+    "firebase-functions": "^7.4.0",
+    "puppeteer-core": "^21.0.0",
+    "stripe": "^12.0.0"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "private": true,
+  "main": "index.js"
+}

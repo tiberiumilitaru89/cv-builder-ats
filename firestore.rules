@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      // Un utilizator logat poate citi propriile lui detalii de abonament
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // Doar serverul de backend (Firebase Admin prin Webhook Stripe) 
+      // are dreptul sa adauge/modifice detalii de abonament.
+      // Daca vrei ca userii sa poata edita si anumite date, creezi un obiect specific de editare
+      allow write: if false; 
+    }
+  }
+}

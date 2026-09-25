@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="ro" class="tab-editor">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0a0f1e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="robots" content="index, follow">
+    <meta name="description"
+        content="Constructor CV profesional optimizat ATS. Creează CV-ul perfect, exportă PDF fără watermark cu PRO. 1.50 EUR / export sau 5 EUR / lună.">
+    <meta property="og:title" content="CV Builder Pro — ATS Optimized">
+    <meta property="og:description"
+        content="Constructor CV profesional optimizat ATS. Gratuit cu watermark, PRO fără watermark.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://domeniultau.ro/">
+    <meta property="og:image" content="https://domeniultau.ro/preview.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="CV Builder Pro — ATS Optimized">
+    <meta name="twitter:description" content="Constructor CV profesional optimizat ATS. Gratuit cu watermark, PRO fără watermark.">
+    <meta name="twitter:image" content="https://domeniultau.ro/preview.png">
+    <link rel="canonical" href="https://domeniultau.ro/">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%233b82f6'/><text y='.9em' font-size='75' x='10'>📄</text></svg>">
+    <title>CV Builder Pro — ATS Optimized</title>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "CV Builder Pro",
+      "description": "Constructor CV profesional optimizat ATS",
+      "url": "https://domeniultau.ro",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "offers": {"@type": "Offer","price": "1.50","priceCurrency": "EUR"}
+    }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Roboto:wght@300;400;500;700&display=swap"
+        rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+        <link rel="stylesheet" href="styles.css">
+
+    <!-- DOMPurify for XSS Protection -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+</head>
+
+<body>
+
+    <!-- LOADING OVERLAY -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+        <div class="loading-text" data-i18n="loadingPDF">Se generează PDF-ul... Te rugăm să aștepți.</div>
+    </div>
+
+    <!-- TOAST ALERT PANEL -->
+    <div class="toast-box" id="toastBox" aria-live="polite"></div>
+
+    <!-- MOBILE TAB CONTROL BAR -->
+    <nav class="tab-bar" aria-label="Navigare aplicație">
+        <button class="tab-btn active" data-tab="editor" id="tabEditor" aria-pressed="true" data-i18n="tabEditor">Editor</button>
+        <span class="ats-mini empty" id="atsMini">ATS --</span>
+        <button class="tab-btn" data-tab="preview" id="tabPreview" aria-pressed="false" data-i18n="tabPreview">Vizualizare CV</button>
+    </nav>
+
+    <!-- GDPR BANNER -->
+    <div id="gdprBanner" class="gdpr-banner hidden">
+        <div class="gdpr-content">
+            <span class="gdpr-icon">🛡️</span>
+            <p data-i18n="gdprText">Folosim stocarea locală și cookie-uri strict necesare pentru a-ți salva progresul și a permite autentificarea. Datele tale sunt private și nu le vindem terților.</p>
+        </div>
+        <div class="gdpr-actions">
+            <button class="btn btn--ok btn--sm" id="gdprAccept" data-i18n="gdprAcceptBtn">Am înțeles și sunt de acord</button>
+        </div>
+    </div>
+
+    <!-- LOGIN MODAL -->
+    <div class="modal-bg" id="loginModal" role="dialog" aria-modal="true" aria-labelledby="loginH">
+        <div class="modal login-modal">
+            <h2 class="modal__title" id="loginH" data-i18n="loginModalTitle">🔐 Autentificare</h2>
+            <p class="modal__body" id="loginModalBody" data-i18n="loginModalBody">Creează un cont gratuit sau autentifică-te pentru a accesa abonamentul PRO pe orice dispozitiv.</p>
+            
+            <label class="gdpr-checkbox" style="display:flex; gap:8px; align-items:flex-start; margin-bottom:16px; font-size:11.5px; color:var(--txt3); cursor:pointer; line-height:1.4;">
+                <input type="checkbox" id="loginGdprCheck" style="margin-top:2px; accent-color:var(--accent); width:16px; height:16px;">
+                <span data-i18n="loginGdprLabel">Prin autentificare, ești de acord cu Termenii de Utilizare și cu prelucrarea datelor cu caracter personal (Nume, Email, poză profil) strict pentru cont și facturare.</span>
+            </label>
+
+            <div class="login-providers">
+                <button class="btn btn--google" id="loginGoogleBtn" style="min-height:48px">
+                    <svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20H24v8h11.3C33.7 33.1 29.4 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.8 2.9l5.7-5.7C34.1 6.4 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 20-8 20-20 0-1.3-.1-2.7-.4-4z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.7 1.1 7.8 2.9l5.7-5.7C34.1 6.4 29.3 4 24 4c-7.7 0-14.4 4.2-17.7 10.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.3 26.8 36 24 36c-5.3 0-9.7-3-11.3-7.2l-6.6 4.9C9.7 39.9 16.4 44 24 44z"/><path fill="#1976D2" d="M43.6 20H24v8h11.3c-.8 2.4-2.3 4.5-4.4 6l6.2 5.2C40.7 35.5 44 30.2 44 24c0-1.3-.1-2.7-.4-4z"/></svg>
+                    <span data-i18n="loginGoogleBtn">Continuă cu Google</span>
+                </button>
+            </div>
+            <div class="login-divider" data-i18n="loginDivider">Datele tale sunt private și securizate</div>
+            <div class="modal__acts">
+                <button class="btn btn--ol" id="loginCancel" data-i18n="loginCancelBtn">Continuă fără cont</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MANAGE SUBSCRIPTION MODAL -->
+    <div class="modal-bg" id="manageSubModal" role="dialog" aria-modal="true" aria-labelledby="manageSubH">
+        <div class="modal">
+            <h2 class="modal__title" id="manageSubH" data-i18n="manageSubTitle">⚙️ Abonament PRO</h2>
+            <div class="modal__body" id="manageSubBody">
+                <div id="manageSubInfo" style="margin-bottom:16px"></div>
+            </div>
+            <div class="modal__acts">
+                <button class="btn btn--ol" id="manageSubClose" data-i18n="manageSubClose">Închide</button>
+                <button class="btn btn--danger btn--sm" id="cancelSubBtn" style="display:none" data-i18n="cancelSubBtn">Anulează abonamentul</button>
+            </div>
+            <button class="manage-sub-link" id="openBillingPortal" data-i18n="openBillingPortal">Gestionează plăți în Stripe →</button>
+        </div>
+    </div>
+
+    <!-- SYSTEM ACTION MODALS -->
+    <div class="modal-bg" id="resetModal" role="dialog" aria-modal="true" aria-labelledby="resetH">
+        <div class="modal">
+            <h2 class="modal__title" id="resetH" data-i18n="modalResetTitle">Resetare date</h2>
+            <p class="modal__body" id="resetModalBody">Toate datele CV-ului vor fi șterse definitiv.<br><strong>Acțiunea nu poate fi anulată.</strong><br>Recomandăm exportul unui backup JSON înainte.</p>
+            <div class="modal__acts">
+                <button class="btn btn--ol" id="resetCancel" data-i18n="modalResetCancel">Anulează</button>
+                <button class="btn btn--danger" id="resetConfirm" data-i18n="modalResetConfirm">Da, șterge tot</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-bg" id="proModal" role="dialog" aria-modal="true" aria-labelledby="proH">
+        <div class="modal pro-modal">
+            <h2 class="modal__title" id="proH" data-i18n="modalProTitle">Deblochează Export PRO</h2>
+            <p class="modal__body" id="proModalBody">Versiunea <strong>gratuită</strong> exportă cu watermark discret. Cu <strong>PRO</strong> obții PDF-ul curat, fără nicio siglă sau watermark.</p>
+            <div class="pro-plans" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                <div class="pro-plan" id="planOneTime" style="cursor:pointer; border: 2px solid var(--border); border-radius: 8px; padding: 12px; text-align: center; display: flex; flex-direction: column; justify-content: center;">
+                    <div class="pro-plan__price" style="font-size: 24px; font-weight: 700; color: var(--txt1);"><sup>EUR</sup>3</div>
+                    <div class="pro-plan__label" style="color: var(--txt2); font-size: 13px;" data-i18n="planOnetimeLabel">Plată Unică</div>
+                    <div class="pro-plan__desc" style="color: var(--txt3); font-size: 11px; margin-top: 4px;" data-i18n="planOnetimeDesc">1 Export fără watermark</div>
+                </div>
+                <div class="pro-plan featured" id="planMonthly" style="cursor:pointer; border: 2px solid #3b82f6; border-radius: 8px; padding: 12px; text-align: center; position: relative; background: rgba(59,130,246,0.05); display: flex; flex-direction: column; justify-content: center;">
+                    <div class="pro-plan__badge" data-i18n="planBadge" style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #3b82f6; color: white; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; white-space: nowrap;">CEL MAI POPULAR</div>
+                    <div class="pro-plan__price" style="font-size: 24px; font-weight: 700; color: #3b82f6;"><sup>EUR</sup>5</div>
+                    <div class="pro-plan__label" data-i18n="planMonthlyLabel" style="color: #3b82f6; font-size: 13px;">/ lună</div>
+                    <div class="pro-plan__desc" style="color: var(--txt3); font-size: 11px; margin-top: 4px;" data-i18n="planMonthlyDesc">Exporturi nelimitate</div>
+                </div>
+            </div>
+            <ul class="pro-features">
+                <li data-i18n="proFeat1">PDF fără watermark</li>
+                <li data-i18n="proFeat2">Export JSON nelimitat</li>
+                <li data-i18n="proFeat3">Copiere text CV (ATS raw paste)</li>
+                <li data-i18n="proFeat4">Suport prioritar</li>
+            </ul>
+            <div class="modal__acts">
+                <button class="btn btn--ol" id="proCancel" data-i18n="modalProCancel">Export gratuit (cu watermark)</button>
+                <button class="btn btn--pro" id="proPayBtn" data-i18n="modalProBuy">Cumpără PRO</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ SIDEBAR PANEL ═══════════════ -->
+    <aside class="sidebar" aria-label="Editor CV">
+        <div class="sb-header">
+            <div class="app-title">CV Builder Pro<small data-i18n="appSubtitle">ATS Optimized | Securizat &amp; Rapid</small></div>
+            <div class="sb-actions">
+                <button class="lang-btn" id="langToggle" title="Switch Language / Schimbă Limba">🇬🇧 EN</button>
+                <button class="btn btn--ol btn--sm" id="exportBtn" title="Ctrl+S" data-i18n="btnSaveJSON">Salvare JSON</button>
+                <label class="btn btn--ol btn--sm" style="cursor:pointer"><span data-i18n="btnImport">Importă</span><input type="file" id="importInput" accept=".json" class="sr-only"></label>
+            </div>
+        </div>
+
+        <!-- AUTH BAR -->
+        <div class="auth-bar" id="authBar">
+            <!-- Logged OUT state -->
+            <div id="authLoggedOut" class="auth-bar__status">
+                <span style="font-size:11px;color:var(--txt3)" data-i18n="authNotLogged">Neautentificat</span>
+            </div>
+            <!-- Logged IN state (hidden by default) -->
+            <div id="authLoggedIn" class="auth-bar__status" style="display:none">
+                <div class="auth-avatar" id="authAvatar">?</div>
+                <span class="auth-email" id="authEmailSpan"></span>
+                <span class="auth-pro-chip" id="authProChip" style="display:none">PRO</span>
+            </div>
+            <!-- Buttons -->
+            <div style="display:flex;gap:6px;flex-shrink:0">
+                <button class="btn btn--ol btn--xs" id="loginOpenBtn" style="display:block" data-i18n="btnLogin">Login</button>
+                <button class="btn btn--ghost btn--xs" id="logoutBtn" style="display:none" title="Delogare" data-i18n-title="btnLogout">↩</button>
+                <button class="btn btn--ol btn--xs" id="manageSubBtn" style="display:none" title="Abonament" data-i18n-title="btnManageSub">⚙️</button>
+            </div>
+        </div>
+
+        <div class="profile-bar">
+            <label data-i18n="profileLabel">Profil CV activ</label>
+            <div class="profile-row">
+                <select id="profileSelect" class="profile-sel" aria-label="Schimbă profilul"></select>
+                <button class="btn btn--ok btn--sm" id="newProfileBtn" title="Profil nou">+</button>
+                <button class="btn btn--ol btn--sm" id="renameProfileBtn" title="Redenumește">✏️</button>
+                <button class="btn btn--danger btn--sm" id="deleteProfileBtn" title="Șterge">✕</button>
+            </div>
+        </div>
+
+        <!-- ACCORDION: SMART PASTE -->
+        <div class="sec open sec--smart" data-id="smart">
+            <div class="sec__hd"><span class="sec__icon">⚡</span><span class="sec__label" data-i18n="secSmart">Import Rapid (Smart Paste)</span><svg class="chevron" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                </svg></div>
+            <div class="sec__body">
+                <div class="field">
+                    <label class="field__lbl" for="in-smart" data-i18n="lblSmartText">Text brut (Experiențe / Proiecte)</label>
+                    <textarea id="in-smart" class="field__ta" rows="5"
+                        placeholder="Ex: Software Engineer la Google (2022 - Prezent)&#10;- Am dezvoltat aplicații React&#10;- Am optimizat query-urile SQL în PostgreSQL" data-i18n-ph="phSmartPaste"></textarea>
+                    <p class="field__hint" data-i18n="smartHint">Detectează automat perioade, roluri, companii și skill-uri relevante.</p>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn--ok" id="parseExp" data-i18n="btnParseExp">+ Experiență</button>
+                    <button class="btn btn--ol" id="parseProj" data-i18n="btnParseProj">+ Proiect</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: JOB DESCRIPTION COMPARATOR -->
+        <div class="sec" data-id="jd" style="border-color:#6366f1">
+            <div class="sec__hd" style="background:rgba(99,102,241,.12);color:#a5b4fc"><span
+                    class="sec__icon">🎯</span><span class="sec__label" data-i18n="secJD">Compatibilitate Anunț Job (JD)</span><svg
+                    class="chevron" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                </svg></div>
+            <div class="sec__body">
+                <div class="field">
+                    <label class="field__lbl" for="in-jd" data-i18n="lblJD">Lipește descrierea jobului căutat (JD)</label>
+                    <textarea id="in-jd" class="field__ta" rows="5"
+                        placeholder="Lipește aici cerințele și responsabilitățile postului pentru a verifica automat potrivirea cu CV-ul..."
+                        style="border-color:#6366f1" data-i18n-ph="phJD"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: DATE PERSONALE -->
+        <div class="sec" data-id="personal">
+            <div class="sec__hd"><span class="sec__icon">👤</span><span class="sec__label" data-i18n="secPersonal">Date Personale</span><svg
+                    class="chevron" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                </svg></div>
+            <div class="sec__body">
+                <div class="field"><label class="field__lbl" for="in-photo" data-i18n="lblPhoto">Fotografie (Max 2MB)</label><input
+                        type="file" id="in-photo" accept="image/*"><button class="btn btn--ol btn--sm hidden"
+                        id="rmPhoto" data-i18n="btnRmPhoto">Șterge fotografia</button></div>
+                <div class="field"><label class="field__lbl" for="in-name" data-i18n="lblName">Nume Complet</label><input type="text"
+                        id="in-name" class="field__inp" placeholder="Ion Popescu" autocomplete="name" data-i18n-ph="phName"></div>
+                <div class="field"><label class="field__lbl" for="in-title" data-i18n="lblTitle">Titlu Profesional</label><input type="text"
+                        id="in-title" class="field__inp" placeholder="Software Engineer" autocomplete="off" data-i18n-ph="phTitle"></div>
+                <div class="field"><label class="field__lbl" for="in-email" data-i18n="lblEmail">Email</label><input type="email"
+                        id="in-email" class="field__inp" placeholder="ion@example.com" autocomplete="email" data-i18n-ph="phEmail"></div>
+                <div class="field"><label class="field__lbl" for="in-phone" data-i18n="lblPhone">Telefon</label><input type="tel"
+                        id="in-phone" class="field__inp" placeholder="+40 700 000 000" autocomplete="tel" data-i18n-ph="phPhone"></div>
+                <div class="field"><label class="field__lbl" for="in-location" data-i18n="lblLocation">Locație</label><input type="text"
+                        id="in-location" class="field__inp" placeholder="București, România" autocomplete="off" data-i18n-ph="phLocation"></div>
+                <div class="field"><label class="field__lbl" for="in-linkedin" data-i18n="lblLinkedIn">LinkedIn URL</label><input type="url"
+                        id="in-linkedin" class="field__inp" placeholder="linkedin.com/in/username" autocomplete="off" data-i18n-ph="phLinkedIn">
+                </div>
+                <div class="field"><label class="field__lbl" for="in-github" data-i18n="lblGitHub">GitHub URL</label><input type="url"
+                        id="in-github" class="field__inp" placeholder="github.com/username" autocomplete="off" data-i18n-ph="phGitHub">
+                </div>
+                <div class="field"><label class="field__lbl" for="in-portfolio" data-i18n="lblPortfolio">Website / Portfolio</label><input type="url"
+                        id="in-portfolio" class="field__inp" placeholder="https://portofoliu.ro" autocomplete="off" data-i18n-ph="phPortfolio">
+                </div>
+                <div class="field">
+                    <label class="field__lbl" for="in-summary" data-i18n="lblSummary">Profil Profesional</label>
+                    <textarea id="in-summary" class="field__ta" rows="4"
+                        placeholder="Scurt rezumat al carierei tale..." data-i18n-ph="phSummary"></textarea>
+                    <div class="char-ctr ok" id="summCtr">0 caractere (recomandat: 300-600)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: ASPECT -->
+        <div class="sec" data-id="aspect">
+            <div class="sec__hd"><span class="sec__icon">🎨</span><span class="sec__label" data-i18n="secAspect">Aspect CV</span><svg
+                    class="chevron" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                </svg></div>
+            <div class="sec__body">
+                <div class="field"><label class="field__lbl" data-i18n="lblAccentColor">Culoare Accent</label>
+                    <div class="color-row"><input type="color" id="in-color" value="#3b82f6"
+                            aria-label="Culoare accent"><span data-i18n="lblColorDesc">Culoarea de bază din șablon</span></div>
+                </div>
+                <div class="field"><label class="field__lbl" for="in-font" data-i18n="lblFont">Font CV</label><select id="in-font"
+                        class="field__sel">
+                        <option value="'Inter', sans-serif">Inter — Modern Sans-Serif</option>
+                        <option value="'Roboto', sans-serif">Roboto — Geometric Sans-Serif</option>
+                        <option value="'Lora', serif">Lora — Serif Elegant</option>
+                        <option value="Georgia, serif">Georgia — Serif Clasic</option>
+                    </select></div>
+                <div class="rng-wrap"><label id="lPad"><span data-i18n="lblPad">Margini CV</span> <em id="vPad">20mm</em></label><input type="range"
+                        id="in-pad" min="5" max="35" value="20"></div>
+                <div class="rng-wrap"><label id="lSz"><span data-i18n="lblSize">Dimensiune Text</span> <em id="vSz">14px</em></label><input type="range"
+                        id="in-sz" min="11" max="18" value="14"></div>
+                <div class="rng-wrap"><label id="lLh"><span data-i18n="lblLH">Spațiere Linii</span> <em id="vLh">1.6</em></label><input type="range"
+                        id="in-lh" min="1.2" max="2.0" step="0.1" value="1.6"></div>
+                <div class="rng-wrap"><label id="lGap"><span data-i18n="lblGap">Spațiere Secțiuni</span> <em id="vGap">24px</em></label><input
+                        type="range" id="in-gap" min="10" max="40" value="24"></div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: REORDER & VISIBILITY -->
+        <div class="sec" data-id="order">
+            <div class="sec__hd"><span class="sec__icon">⚙️</span><span class="sec__label" data-i18n="secOrder">Ordine &amp;
+                    Vizibilitate</span><svg class="chevron" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                </svg></div>
+            <div class="sec__body">
+                <p class="hint-txt" data-i18n="orderHint">Reordonează cu butoanele ↑↓. Apasă pe ochiul 👁 pentru a ascunde secțiunea în document.</p>
+                <div id="orderCont"></div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: LINKS -->
+        <div class="sec" data-id="links">
+            <div class="sec__hd"><span class="sec__icon">🔗</span><span class="sec__label" data-i18n="secLinks">Link-uri
+                    Profesionale</span><svg class="chevron" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                </svg></div>
+            <div class="sec__body"><button class="btn btn--ol btn--sm btn--self" id="addLink" data-i18n="btnAddLink">+ Adaugă Link</button>
+                <div id="linksCont"></div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: EXPERIENTA -->
+        <div class="sec" data-id="exp">
+            <div class="sec__hd"><span class="sec__icon">💼</span><span class="sec__label" data-i18n="secExp">Experiență
+                    Profesională</span><svg class="chevron" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                </svg></div>
+            <div class="sec__body"><button class="btn btn--ol btn--sm btn--self" id="addExp" data-i18n="btnAddExp">+ Adaugă Experiență</button>
+                <div id="expCont"></div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: PROIECTE -->
+        <div class="sec" data-id="proj">
+            <div class="sec__hd"><span class="sec__icon">🚀</span><span class="sec__label" data-i18n="secProj">Proiecte</span><svg
+                    class="chevron" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                </svg></div>
+            <div class="sec__body"><button class="btn btn--ol btn--sm btn--self" id="addProj" data-i18n="btnAddProj">+ Adaugă Proiect</button>
+                <div id="projCont"></div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: EDUCATIE -->
+        <div class="sec" data-id="edu">
+            <div class="sec__hd"><span class="sec__icon">🎓</span><span class="sec__label" data-i18n="secEdu">Educație</span><svg
+                    class="chevron" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                </svg></div>
+            <div class="sec__body"><button class="btn btn--ol btn--sm btn--self" id="addEdu" data-i18n="btnAddEdu">+ Adaugă Educație</button>
+                <div id="eduCont"></div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: CERTIFICARI -->
+        <div class="sec" data-id="cert">
+            <div class="sec__hd"><span class="sec__icon">📜</span><span class="sec__label" data-i18n="secCert">Certificări</span><svg
+                    class="chevron" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                </svg></div>
+            <div class="sec__body"><button class="btn btn--ol btn--sm btn--self" id="addCert" data-i18n="btnAddCert">+ Adaugă Certificare</button>
+                <div id="certCont"></div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: LIMBI -->
+        <div class="sec" data-id="lang">
+            <div class="sec__hd"><span class="sec__icon">🌐</span><span class="sec__label" data-i18n="secLang">Limbi Străine</span><svg
+                    class="chevron" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                </svg></div>
+            <div class="sec__body"><button class="btn btn--ol btn--sm btn--self" id="addLang" data-i18n="btnAddLang">+ Adaugă Limbă</button>
+                <div id="langCont"></div>
+            </div>
+        </div>
+
+        <!-- ACCORDION: COMPETENTE -->
+        <div class="sec" data-id="skills">
+            <div class="sec__hd"><span class="sec__icon">⚙️</span><span class="sec__label" data-i18n="secSkills">Competențe</span><svg
+                    class="chevron" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                </svg></div>
+            <div class="sec__body">
+                <div class="skill-row"><input type="text" id="in-skill" class="field__inp"
+                        placeholder="Ex: React, Node.js, Python" autocomplete="off" data-i18n-ph="phSkill"><button class="btn btn--sm"
+                        id="addSkill" data-i18n="btnAddSkill">Adaugă</button></div>
+                <div class="skills-wrap" id="skillsWrap"></div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ═══════════════ PREVIEW PANEL ═══════════════ -->
+    <main class="preview" id="previewMain" aria-label="Previzualizare CV">
+        <!-- INTERACTIVE TOOLBAR -->
+        <div class="toolbar">
+            <div class="toolbar__l">
+                <span class="save-ind" id="saveInd" aria-live="polite"><span class="save-ind__dot"></span><span id="saveIndText" data-i18n="toastSaved">Salvat în browser</span></span>
+                <span class="pro-badge" id="proStatusBadge" style="display:none">PRO Activ</span>
+            </div>
+            <div class="toolbar__r">
+                <button class="btn btn--ol btn--sm" id="copyBtn" title="Copiază textul brut al CV-ului" data-i18n="btnCopyText">📋 Copiază Text</button>
+                <button class="btn btn--ol btn--sm" id="clearBtn" title="Resetare totală date" data-i18n="btnReset">Resetare</button>
+                <button class="btn btn--pro btn--sm" id="printBtn" title="Exportă ca PDF" data-i18n="btnExportPDF">🖨️ Exportă PDF</button>
+            </div>
+        </div>
+
+        <!-- COMPACT ATS PANEL -->
+        <div class="ats expanded" id="atsPanel">
+            <div class="ats__hd" id="atsHd"><span>📊</span><span class="ats__title" data-i18n="atsTitle">Compatibilitate Sistem ATS</span><span class="ats__arr">▲</span></div>
+            <div class="ats__body">
+                <div class="ats-score-row">
+                    <div class="ats-badge empty" id="atsBadge">--</div>
+                    <div class="ats-info">
+                        <div class="ats-lbl" id="atsLbl" data-i18n="atsEmptyStart">Completează datele din stânga pentru a analiza profilul</div>
+                        <div class="prog">
+                            <div class="prog__fill" id="atsBar" style="width:0%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="ats-grid" id="atsGrid"></div>
+                <div class="ats-kws hidden" id="atsKws">
+                    <div class="ats-kws-title" data-i18n="atsKwTitle">🔑 Densitate Cuvinte Cheie Detectate (Top 10)</div>
+                    <div id="atsKwList"></div>
+                </div>
+                <div id="jdMatchPanel" class="hidden"
+                    style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
+                    <div class="ats-kws-title" style="color:#818cf8" data-i18n="jdTitle">Analiză Comparativă cu Fișa Postului</div>
+                    <div style="font-size:13px;color:var(--txt2);margin-bottom:6px"><span data-i18n="jdScore">Rată potrivire:</span> <strong
+                            id="jdScoreText" style="color:#818cf8">0%</strong></div>
+                    <div style="font-size:11px;color:var(--txt3);margin-bottom:6px" data-i18n="jdMissing">Cuvinte cheie absente din CV-ul tău:</div>
+                    <div id="jdMissingList" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+                </div>
+                <div id="atsPits"></div>
+                <div class="ats-disclaimer" style="font-size:11px; color:var(--txt3); margin-top:12px; border-top:1px solid var(--border); padding-top:10px; line-height:1.5;">
+                    <span data-i18n="atsDisclaimer">ℹ️ Analiza ATS este orientativă. Sistemele companiei pot varia în funcție de parserul utilizat (Taleo, Workday, etc). Scopul acestui scor este să îți valideze prezența cuvintelor cheie și formatarea corectă.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- THE INTERACTIVE CV DOCUMENT -->
+        <div class="cv-wrap">
+            <div class="cv-doc" id="cvDoc">
+                <div class="cv-hdr">
+                    <img id="cv-photo" class="cv-photo" src="" alt="Fotografie profil">
+                    <div class="cv-meta">
+                        <div class="cv-name" id="cv-name"></div>
+                        <div class="cv-role-row">
+                            <div class="cv-role" id="cv-role"></div>
+                            <span class="cv-exp-badge" id="cv-expb"></span>
+                        </div>
+                    </div>
+                    <div class="cv-contact" id="cv-cont"></div>
+                </div>
+                <div class="cv-sec hidden" id="sec-summary">
+                    <div class="cv-sec__title" data-i18n="cvSummary">Profil Profesional</div>
+                    <div class="cv-text" id="cv-summ"></div>
+                </div>
+                <div class="cv-sec hidden" id="sec-exp">
+                    <div class="cv-sec__title" data-i18n="cvExp">Experiență Profesională</div>
+                    <div id="cv-exp"></div>
+                </div>
+                <div class="cv-sec hidden" id="sec-proj">
+                    <div class="cv-sec__title" data-i18n="cvProj">Proiecte</div>
+                    <div id="cv-proj"></div>
+                </div>
+                <div class="cv-sec hidden" id="sec-edu">
+                    <div class="cv-sec__title" data-i18n="cvEdu">Educație</div>
+                    <div id="cv-edu"></div>
+                </div>
+                <div class="cv-sec hidden" id="sec-cert">
+                    <div class="cv-sec__title" data-i18n="cvCert">Certificări</div>
+                    <div id="cv-cert"></div>
+                </div>
+                <div class="cv-sec hidden" id="sec-lang">
+                    <div class="cv-sec__title" data-i18n="cvLang">Limbi Străine</div>
+                    <div class="cv-pills" id="cv-lang"></div>
+                </div>
+                <div class="cv-sec hidden" id="sec-skills">
+                    <div class="cv-sec__title" data-i18n="cvSkills">Competențe Tehnice &amp; Soft Skills</div>
+                    <div class="cv-pills" id="cv-skills"></div>
+                </div>
+                <div class="cv-watermark" id="cvWatermark">Creat cu CV Builder Pro | domeniultau.ro</div>
+            </div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+
+</body>
+
+</html>
