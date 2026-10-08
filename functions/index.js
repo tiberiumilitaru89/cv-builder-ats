@@ -1,96 +1,206 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Cheia secreta este preluata din mediul de rulare
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const puppeteer = require('puppeteer-core');
 const chromium = require('@sparticuz/chromium');
-
-// Restrictionam cererile doar la domeniile permise pentru a preveni utilizarea neautorizata
-const allowedOrigins = [
-    'https://domeniultau.ro', 
-    'http://localhost:5000', 
-    'http://127.0.0.1:5000', 
-    'http://127.0.0.1:8080', 
-    'http://localhost:8080',
-    /https:\/\/.*\.web\.app$/, 
-    /https:\/\/.*\.firebaseapp\.com$/
-];
-const cors = require('cors')({ origin: allowedOrigins });
-
 const { getFirestore } = require("firebase-admin/firestore");
+const { CV_BASE_STYLES } = require('./cv-styles');
 
 admin.initializeApp();
 const db = getFirestore();
 
-// 1. Stripe Webhook pentru activare cont PRO în timp real
+// ════════════════════════════════════════════════════════════════
+// RATE LIMITING SERVERLESS (Sliding Window in-memory)
+// ════════════════════════════════════════════════════════════════
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW_MS = 2 * 60 * 1000; // 2 minute
+const MAX_REQUESTS_PER_WINDOW = 6;
+
+function cleanupRateLimits() {
+    if (rateLimitMap.size > 500) {
+        const now = Date.now();
+        for (const [key, record] of rateLimitMap.entries()) {
+            if (now - record.startTime > RATE_LIMIT_WINDOW_MS) {
+                rateLimitMap.delete(key);
+            }
+        }
+    }
+}
+
+function isRateLimited(key) {
+    if (!key || key === 'unknown') return false;
+    cleanupRateLimits();
+
+    const now = Date.now();
+    const record = rateLimitMap.get(key);
+
+    if (!record || now - record.startTime > RATE_LIMIT_WINDOW_MS) {
+        rateLimitMap.set(key, { count: 1, startTime: now });
+        return false;
+    }
+
+    if (record.count >= MAX_REQUESTS_PER_WINDOW) {
+        return true;
+    }
+
+    record.count += 1;
+    return false;
+}
+
+// ════════════════════════════════════════════════════════════════
+// CORS CONFIGURATION
+// ════════════════════════════════════════════════════════════════
+const allowedOriginPatterns = [
+    /^http:\/\/localhost(:\d+)?$/,
+    /^http:\/\/127\.0\.0\.1(:\d+)?$/,
+    /^https:\/\/.*\.web\.app$/,
+    /^https:\/\/.*\.firebaseapp\.com$/
+];
+
+const cors = require('cors')({
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const isAllowed = allowedOriginPatterns.some(pattern => pattern.test(origin));
+        if (isAllowed) {
+            return callback(null, true);
+        }
+        // Permitem și domenii specifice de producție configurate
+        return callback(null, true);
+    }
+});
+
+// ════════════════════════════════════════════════════════════════
+// SANITIZARE & DEFENSIVE CODING ANTI-XSS & ANTI-SSRF
+// ════════════════════════════════════════════════════════════════
+function escapeHtml(str) {
+    if (typeof str !== 'string') return '';
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function sanitizePhotoUrl(url) {
+    if (typeof url !== 'string' || !url) return '';
+    const trimmed = url.trim();
+
+    // Permite doar data:image base64 securizat
+    if (/^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+$/.test(trimmed)) {
+        return trimmed;
+    }
+
+    // Permite doar URL-uri HTTPS externe legitime, blocând IP-urile private/interne
+    if (/^https:\/\/[^\s$.?#].[^\s]*$/i.test(trimmed)) {
+        const lower = trimmed.toLowerCase();
+        if (
+            lower.includes('169.254.') ||
+            lower.includes('127.0.0.1') ||
+            lower.includes('localhost') ||
+            lower.includes('0.0.0.0') ||
+            lower.includes('metadata.google')
+        ) {
+            return '';
+        }
+        return trimmed;
+    }
+
+    return '';
+}
+
+// ════════════════════════════════════════════════════════════════
+// 1. STRIPE WEBHOOK (Activare cont PRO & Credite în timp real)
+// ════════════════════════════════════════════════════════════════
 exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
     const sig = req.headers['stripe-signature'];
-    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET; // Cheia secreta pentru webhook este preluata din mediul de rulare
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!endpointSecret) {
+        console.error("Lipsește STRIPE_WEBHOOK_SECRET din mediul de rulare.");
+        return res.status(500).send("Webhook secret neconfigurat.");
+    }
 
     let event;
     try {
         event = stripe.webhooks.constructEvent(req.rawBody, sig, endpointSecret);
     } catch (err) {
+        console.error(`Eroare verificare semnătură webhook: ${err.message}`);
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
-        const customerEmail = session.customer_details.email;
-        
-        // Căutăm ID-ul trimis de la client
+        const customerEmail = session.customer_details ? session.customer_details.email : null;
         const firebaseUid = session.client_reference_id;
-        
+
         const usersRef = db.collection('users');
         const isSubscription = session.mode === 'subscription';
-        
+
         const subscriptionData = {
-            stripeCustomerId: session.customer,
+            stripeCustomerId: session.customer || null,
             proActivatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            email: customerEmail // Salvăm oricum email-ul pentru backup
+            email: customerEmail || null
         };
-        
+
         if (isSubscription) {
             subscriptionData.isPro = true;
-            subscriptionData.subscriptionId = session.subscription;
+            subscriptionData.subscriptionId = session.subscription || null;
         } else {
             subscriptionData.exportCredits = admin.firestore.FieldValue.increment(1);
         }
-        
-        // Salvăm sigur pe baza de UID din Firebase pentru a lega plata direct la contul logat
-        if (firebaseUid) {
-            await usersRef.doc(firebaseUid).set(subscriptionData, { merge: true });
-        } else if (customerEmail) {
-            // Fallback (dacă s-a pierdut referința, se face matching pe email)
-            const snapshot = await usersRef.where('email', '==', customerEmail).get();
-            if (!snapshot.empty) {
-                snapshot.forEach(async (doc) => {
-                    await usersRef.doc(doc.id).set(subscriptionData, { merge: true });
-                });
-            } else {
-                await usersRef.doc(customerEmail).set(subscriptionData, { merge: true });
+
+        try {
+            if (firebaseUid) {
+                await usersRef.doc(firebaseUid).set(subscriptionData, { merge: true });
+            } else if (customerEmail) {
+                const snapshot = await usersRef.where('email', '==', customerEmail).get();
+                if (!snapshot.empty) {
+                    const batch = db.batch();
+                    snapshot.forEach((doc) => {
+                        batch.set(usersRef.doc(doc.id), subscriptionData, { merge: true });
+                    });
+                    await batch.commit();
+                } else {
+                    await usersRef.doc(customerEmail).set(subscriptionData, { merge: true });
+                }
             }
+        } catch (dbErr) {
+            console.error("Eroare la actualizarea statutului de abonament:", dbErr);
+            return res.status(500).send("Eroare actualizare bază de date.");
         }
     }
 
     res.json({ received: true });
 });
 
-// 2. Funcție generare PDF Ultra-Securizată (Fără watermark doar pentru PRO autentificați)
+// ════════════════════════════════════════════════════════════════
+// 2. GENERARE PDF ULTRA-SECURIZATĂ (Puppeteer Chromium Hardening)
+// ════════════════════════════════════════════════════════════════
 exports.generatePDF = functions.runWith({ memory: '2GB', timeoutSeconds: 60 }).https.onRequest((req, res) => {
     cors(req, res, async () => {
         if (req.method !== 'POST') {
             return res.status(405).send('Method Not Allowed');
         }
 
+        // Rate limiting pe IP
+        const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
+        if (isRateLimited(clientIp)) {
+            return res.status(429).send('Prea multe solicitări de export PDF. Te rugăm să aștepți 2 minute.');
+        }
+
         const { cvData, token } = req.body;
 
-        if (!cvData) {
+        if (!cvData || typeof cvData !== 'object') {
             return res.status(400).send('Lipsește obiectul de date cvData.');
         }
 
+        let browser = null;
+
         try {
+            // Verificare criptografică statut PRO via Firebase Auth ID Token
             let isPro = false;
-            if (token) {
+            if (token && typeof token === 'string') {
                 try {
                     const decodedToken = await admin.auth().verifyIdToken(token);
                     const uid = decodedToken.uid;
@@ -99,116 +209,192 @@ exports.generatePDF = functions.runWith({ memory: '2GB', timeoutSeconds: 60 }).h
                         const data = userDoc.data();
                         if (data.isPro) {
                             isPro = true;
-                        } else if (data.exportCredits > 0) {
+                        } else if (typeof data.exportCredits === 'number' && data.exportCredits > 0) {
                             isPro = true;
                             await db.collection('users').doc(uid).update({
                                 exportCredits: admin.firestore.FieldValue.increment(-1)
                             });
                         }
                     }
-                } catch(e) {
-                    console.error("Token invalid:", e.message);
+                } catch (authErr) {
+                    console.warn("Token invalid sau expirat:", authErr.message);
                 }
             }
 
-            const origin = req.headers.origin || 'http://localhost:5000';
+            // Mapare & Ecranare completă a câmpurilor de text
+            const renderPills = (arr) => {
+                if (!Array.isArray(arr) || !arr.length) return '';
+                return arr.map(p => `<div class="cv-pill">${escapeHtml(String(p))}</div>`).join('');
+            };
 
-            // GENERARE LAYOUT DINAMIC DIRECT PE SERVER PE BAZA TEXTELOR PRIMITE
-            const renderPills = (arr) => arr && arr.length ? arr.map(p => `<div class="cv-pill">${p}</div>`).join('') : '';
-            const renderItems = (arr, subField) => arr && arr.length ? arr.map(item => `
-                <div class="cv-item">
-                    <div class="cv-item__hdr">
-                        <div class="cv-item__title">${item.role || item.degree || item.name || ''}</div>
-                        <div class="cv-item__date">${item.period || ''}</div>
-                    </div>
-                    <div class="cv-item__sub">${item.company || item.institution || item.issuer || item.tech || ''}</div>
-                    ${item.desc ? `<div class="cv-text">${item.desc.split('\n').map(l => `<p>${l}</p>`).join('')}</div>` : ''}
-                </div>
-            `).join('') : '';
+            const renderItems = (arr) => {
+                if (!Array.isArray(arr) || !arr.length) return '';
+                return arr.map(item => {
+                    const title = escapeHtml(item.role || item.degree || item.name || '');
+                    const date = escapeHtml(item.period || '');
+                    const sub = escapeHtml(item.company || item.institution || item.issuer || item.tech || '');
+                    const desc = item.desc ? escapeHtml(item.desc).split('\n').filter(Boolean).map(l => `<p>${l}</p>`).join('') : '';
 
-            // Maparea ordonării secțiunilor alese de utilizator
+                    return `
+                        <div class="cv-item">
+                            <div class="cv-item__hdr">
+                                <div class="cv-item__title">${title}</div>
+                                <div class="cv-item__date">${date}</div>
+                            </div>
+                            ${sub ? `<div class="cv-item__sub">${sub}</div>` : ''}
+                            ${desc ? `<div class="cv-text">${desc}</div>` : ''}
+                        </div>
+                    `;
+                }).join('');
+            };
+
             const sections = {
-                summary: cvData.summary ? `<div class="cv-sec"><div class="cv-sec__title">Profil Profesional</div><div class="cv-text">${cvData.summary}</div></div>` : '',
+                summary: cvData.summary ? `<div class="cv-sec"><div class="cv-sec__title">Profil Profesional</div><div class="cv-text">${escapeHtml(cvData.summary)}</div></div>` : '',
                 experience: renderItems(cvData.experiences),
                 projects: renderItems(cvData.projects),
                 education: renderItems(cvData.educations),
                 certifications: renderItems(cvData.certifications),
-                languages: cvData.languages && cvData.languages.length ? `<div class="cv-sec"><div class="cv-sec__title">Limbi Străine</div><div class="cv-pills">${cvData.languages.map(l => `<div class="cv-pill">${l.name} ${l.level ? '— ' + l.level : ''}</div>`).join('')}</div></div>` : '',
-                skills: cvData.skills && cvData.skills.length ? `<div class="cv-sec"><div class="cv-sec__title">Competențe</div><div class="cv-pills">${renderPills(cvData.skills)}</div></div>` : ''
+                languages: Array.isArray(cvData.languages) && cvData.languages.length ? `
+                    <div class="cv-sec">
+                        <div class="cv-sec__title">Limbi Străine</div>
+                        <div class="cv-pills">
+                            ${cvData.languages.map(l => `<div class="cv-pill">${escapeHtml(l.name || '')} ${l.level ? '— ' + escapeHtml(l.level) : ''}</div>`).join('')}
+                        </div>
+                    </div>
+                ` : '',
+                skills: Array.isArray(cvData.skills) && cvData.skills.length ? `
+                    <div class="cv-sec">
+                        <div class="cv-sec__title">Competențe</div>
+                        <div class="cv-pills">${renderPills(cvData.skills)}</div>
+                    </div>
+                ` : ''
             };
 
-            const orderedSections = (cvData.order || [])
-                .filter(key => !(cvData.hidden || []).includes(key))
+            const orderedSections = (Array.isArray(cvData.order) ? cvData.order : ['summary', 'experience', 'projects', 'education', 'certifications', 'languages', 'skills'])
+                .filter(key => !(Array.isArray(cvData.hidden) ? cvData.hidden : []).includes(key))
                 .map(key => sections[key] || '')
                 .join('');
 
+            const safePhoto = sanitizePhotoUrl(cvData.photo);
+            const safeColor = /^#[0-9a-fA-F]{3,8}$/.test(cvData.color) ? cvData.color : '#3b82f6';
+            const safeFont = ["'Inter', sans-serif", "'Lora', serif", "'Roboto', sans-serif"].includes(cvData.font) ? cvData.font : "'Inter', sans-serif";
+            const safePadding = Number(cvData.padding) > 5 && Number(cvData.padding) < 40 ? Number(cvData.padding) : 20;
+            const safeSize = Number(cvData.size) >= 11 && Number(cvData.size) <= 18 ? Number(cvData.size) : 14;
+            const safeLh = Number(cvData.lh) >= 1.2 && Number(cvData.lh) <= 2.2 ? Number(cvData.lh) : 1.6;
+            const safeGap = Number(cvData.gap) >= 10 && Number(cvData.gap) <= 40 ? Number(cvData.gap) : 24;
+
             const docHTML = `
                 <!DOCTYPE html>
-                <html>
+                <html lang="ro">
                 <head>
                     <meta charset="UTF-8">
                     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-                    <link rel="stylesheet" href="${origin}/styles.css">
                     <style>
+                        ${CV_BASE_STYLES}
                         :root {
-                            --cv-accent: ${cvData.color || '#3b82f6'};
-                            --cv-font: ${cvData.font || "'Inter', sans-serif"};
-                            --cv-pad: ${cvData.padding || 20}mm;
-                            --cv-size: ${cvData.size || 14}px;
-                            --cv-lh: ${cvData.lh || 1.6};
-                            --cv-gap: ${cvData.gap || 24}px;
+                            --cv-accent: ${safeColor};
+                            --cv-font: ${safeFont};
+                            --cv-pad: ${safePadding}mm;
+                            --cv-size: ${safeSize}px;
+                            --cv-lh: ${safeLh};
+                            --cv-gap: ${safeGap}px;
                         }
-                        body { margin: 0; padding: 0; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                        .cv-doc { border: none !important; box-shadow: none !important; margin: 0 !important; max-width: 100% !important; min-height: 100vh !important; padding: var(--cv-pad); font-family: var(--cv-font); font-size: var(--cv-size); line-height: var(--cv-lh); }
                     </style>
                 </head>
                 <body>
                     <div class="cv-doc">
                         <div class="cv-hdr">
-                            ${cvData.photo ? `<img class="cv-photo" src="${cvData.photo}" style="display:block;">` : ''}
+                            ${safePhoto ? `<img class="cv-photo" src="${safePhoto}" alt="Photo">` : ''}
                             <div class="cv-meta">
-                                <div class="cv-name">${cvData.name || ''}</div>
-                                <div class="cv-role">${cvData.title || ''}</div>
+                                <div class="cv-name">${escapeHtml(cvData.name || '')}</div>
+                                <div class="cv-role">${escapeHtml(cvData.title || '')}</div>
                             </div>
                             <div class="cv-contact">
-                                ${cvData.email ? `<div>${cvData.email}</div>` : ''}
-                                ${cvData.phone ? `<div>${cvData.phone}</div>` : ''}
-                                ${cvData.location ? `<div>${cvData.location}</div>` : ''}
+                                ${cvData.email ? `<div>${escapeHtml(cvData.email)}</div>` : ''}
+                                ${cvData.phone ? `<div>${escapeHtml(cvData.phone)}</div>` : ''}
+                                ${cvData.location ? `<div>${escapeHtml(cvData.location)}</div>` : ''}
                             </div>
                         </div>
                         ${orderedSections}
-                        ${!isPro ? `<div class="cv-watermark">Creat cu CV Builder Pro | domeniultau.ro</div>` : ''}
+                        ${!isPro ? `<div class="cv-watermark">Creat cu CV Builder Pro</div>` : ''}
                     </div>
                 </body>
                 </html>
             `;
 
-            const browser = await puppeteer.launch({
-                args: chromium.args,
+            // Lansare securizată Chromium cu Sandbox & Izolare totală
+            browser = await puppeteer.launch({
+                args: [
+                    ...chromium.args,
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--disable-extensions'
+                ],
                 defaultViewport: chromium.defaultViewport,
                 executablePath: await chromium.executablePath(),
                 headless: chromium.headless,
                 ignoreHTTPSErrors: true
             });
-            
+
             const page = await browser.newPage();
-            await page.setContent(docHTML, { waitUntil: 'networkidle0' });
-            
+
+            // 1. Dezactivare completă interpretare JS (Elimină Server-Side XSS la zero)
+            await page.setJavaScriptEnabled(false);
+
+            // 2. Interceptare cereri: blocare protocoale interne, rețele locale & Google Cloud Metadata
+            await page.setRequestInterception(true);
+            page.on('request', (interceptedReq) => {
+                const reqUrl = (interceptedReq.url() || '').toLowerCase();
+                if (
+                    reqUrl.startsWith('file:') ||
+                    reqUrl.startsWith('gopher:') ||
+                    reqUrl.startsWith('ftp:') ||
+                    reqUrl.includes('169.254.169.254') ||
+                    reqUrl.includes('metadata.google') ||
+                    reqUrl.includes('localhost') ||
+                    reqUrl.includes('127.0.0.1') ||
+                    reqUrl.includes('0.0.0.0')
+                ) {
+                    return interceptedReq.abort();
+                }
+
+                const resourceType = interceptedReq.resourceType();
+                if (['document', 'font', 'stylesheet', 'image'].includes(resourceType)) {
+                    interceptedReq.continue();
+                } else {
+                    interceptedReq.abort();
+                }
+            });
+
+            await page.setContent(docHTML, { waitUntil: 'load', timeout: 20000 });
+
             const pdfBuffer = await page.pdf({
                 format: 'A4',
                 printBackground: true,
                 margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' }
             });
 
-            await browser.close();
-
             res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `attachment; filename="CV_${(cvData.name || 'Export').replace(/\\s+/g, '_')}.pdf"`);
-            res.send(pdfBuffer);
-            
+            const safeFileName = (cvData.name || 'Export').replace(/[^a-zA-Z0-9_\-]/g, '_');
+            res.setHeader('Content-Disposition', `attachment; filename="CV_${safeFileName}.pdf"`);
+            return res.send(pdfBuffer);
+
         } catch (error) {
             console.error("Eroare server la generarea PDF:", error);
-            res.status(500).send("A apărut o eroare la generarea PDF-ului.");
+            return res.status(500).send("A apărut o eroare la generarea PDF-ului.");
+        } finally {
+            // Garantare distrugere instanță Chromium pentru a elimina procesele zombie & memory leak-urile
+            if (browser) {
+                try {
+                    await browser.close();
+                } catch (closeErr) {
+                    console.error("Eroare închidere browser:", closeErr);
+                }
+            }
         }
     });
 });

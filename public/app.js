@@ -819,7 +819,8 @@
                 generateSecurePDF: async function() {
                     const self = this;
                     if (!CLOUD_FUNCTION_URL || CLOUD_FUNCTION_URL.startsWith('LIPESTE')) {
-                        self.toast('Te rog adaugă CLOUD_FUNCTION_URL în index.html', 'error');
+                        self.toast('Server de randare neconfigurat. Se deschide dialogul de export nativ...', 'info');
+                        window.print();
                         return;
                     }
 
@@ -867,7 +868,10 @@
 
                     } catch (err) {
                         console.error('Eroare generare PDF:', err);
-                        self.toast('Eroare la generare: ' + err.message, 'error');
+                        self.toast('Serverul de export este indisponibil momentan. Se deschide dialogul nativ de salvare...', 'info');
+                        setTimeout(function() {
+                            window.print();
+                        }, 600);
                     } finally {
                         btn.innerHTML = originalText;
                         btn.disabled = false;

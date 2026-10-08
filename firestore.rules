@@ -1,14 +1,25 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Profilul de utilizator & Informațiile de Abonament (Strict Securizat)
     match /users/{userId} {
-      // Un utilizator logat poate citi propriile lui detalii de abonament
+      // Utilizatorul autentificat își poate citi exclusiv propriul status PRO
       allow read: if request.auth != null && request.auth.uid == userId;
       
-      // Doar serverul de backend (Firebase Admin prin Webhook Stripe) 
-      // are dreptul sa adauge/modifice detalii de abonament.
-      // Daca vrei ca userii sa poata edita si anumite date, creezi un obiect specific de editare
-      allow write: if false; 
+      // Doar backend-ul de încredere (Firebase Admin SDK via Webhook Stripe sau Cloud Functions)
+      // are dreptul să modifice statutul PRO sau creditele de export.
+      allow write: if false;
+
+      // Draft-uri & Versiuni CV salvate în Cloud (Opțional / Sync Cloud)
+      match /drafts/{draftId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Blocare implicită pentru orice altă colecție nedeclarată
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

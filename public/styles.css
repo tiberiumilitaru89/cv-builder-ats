@@ -1892,10 +1892,38 @@
             line-height: 1.5
         }
         /* ════════════════════════════════════
-   SECURE PRINT
+   SECURE PRINT & EXPORT RULES
 ════════════════════════════════════ */
         @media print {
             body {
+                background: #ffffff !important;
+                display: block !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            .sidebar,
+            .toolbar,
+            .tab-bar,
+            .toast-box,
+            .ats,
+            .modal-bg,
+            .page-break-indicator,
+            .page-break-label {
                 display: none !important;
+            }
+
+            .cv-wrap {
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+            }
+
+            .cv-doc {
+                border: none !important;
+                box-shadow: none !important;
+                margin: 0 auto !important;
+                width: 100% !important;
             }
         }
