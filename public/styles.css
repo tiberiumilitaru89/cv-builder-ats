@@ -1927,3 +1927,43 @@
                 width: 100% !important;
             }
         }
+
+        /* Security Hardening & Zero-Inline-Styling Classes */
+        .user-avatar-img {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .kw-missing-badge {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .pro-plan--selected {
+            border-color: #3b82f6 !important;
+            background: rgba(59, 130, 246, 0.05) !important;
+        }
+
+        .btn--loading {
+            opacity: 0.7;
+            cursor: wait !important;
+        }
+
+        .ats-bar--ok {
+            background: var(--ok) !important;
+        }
+
+        .ats-bar--warn {
+            background: var(--warn) !important;
+        }
+
+        .ats-bar--err {
+            background: var(--err) !important;
+        }

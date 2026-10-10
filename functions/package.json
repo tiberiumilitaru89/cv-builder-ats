@@ -1,6 +1,9 @@
 {
   "name": "cv-builder-functions",
   "description": "Cloud Functions for CV Builder Pro",
+  "scripts": {
+    "gatekeeper": "node -c index.js cv-styles.js"
+  },
   "dependencies": {
     "@sparticuz/chromium": "^119.0.0",
     "cors": "^2.8.5",

@@ -117,7 +117,7 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
     const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
     if (!endpointSecret) {
-        console.error("Lipsește STRIPE_WEBHOOK_SECRET din mediul de rulare.");
+        functions.logger.error("Missing STRIPE_WEBHOOK_SECRET in runtime environment", { correlation_id: sig ? sig.slice(0, 10) : "none" });
         return res.status(500).send("Webhook secret neconfigurat.");
     }
 
@@ -125,7 +125,7 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
     try {
         event = stripe.webhooks.constructEvent(req.rawBody, sig, endpointSecret);
     } catch (err) {
-        console.error(`Eroare verificare semnătură webhook: ${err.message}`);
+        functions.logger.error("Webhook signature verification failed", { error: err.message });
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
@@ -166,7 +166,7 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
                 }
             }
         } catch (dbErr) {
-            console.error("Eroare la actualizarea statutului de abonament:", dbErr);
+            functions.logger.error("Subscription status database update failed", { error: dbErr.message });
             return res.status(500).send("Eroare actualizare bază de date.");
         }
     }
@@ -217,7 +217,7 @@ exports.generatePDF = functions.runWith({ memory: '2GB', timeoutSeconds: 60 }).h
                         }
                     }
                 } catch (authErr) {
-                    console.warn("Token invalid sau expirat:", authErr.message);
+                    functions.logger.warn("Invalid or expired token", { error: authErr.message });
                 }
             }
 
@@ -384,7 +384,7 @@ exports.generatePDF = functions.runWith({ memory: '2GB', timeoutSeconds: 60 }).h
             return res.send(pdfBuffer);
 
         } catch (error) {
-            console.error("Eroare server la generarea PDF:", error);
+            functions.logger.error("Server error generating PDF", { error: error.message, stack: error.stack });
             return res.status(500).send("A apărut o eroare la generarea PDF-ului.");
         } finally {
             // Garantare distrugere instanță Chromium pentru a elimina procesele zombie & memory leak-urile
@@ -392,7 +392,7 @@ exports.generatePDF = functions.runWith({ memory: '2GB', timeoutSeconds: 60 }).h
                 try {
                     await browser.close();
                 } catch (closeErr) {
-                    console.error("Eroare închidere browser:", closeErr);
+                    functions.logger.error("Error closing browser instance", { error: closeErr.message });
                 }
             }
         }

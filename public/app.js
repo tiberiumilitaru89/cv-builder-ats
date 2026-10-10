@@ -509,26 +509,37 @@
                     var avatar = $('authAvatar'), emailSpan = $('authEmailSpan'), proChip = $('authProChip');
 
                     if (user) {
-                        if (loggedOut) loggedOut.style.display = 'none';
-                        if (loggedIn) loggedIn.style.display = 'flex';
-                        if (loginBtn) loginBtn.style.display = 'none';
-                        if (logoutBtn) logoutBtn.style.display = 'block';
-                        if (manageBtn) manageBtn.style.display = this.isPro ? 'block' : 'none';
+                        if (loggedOut) loggedOut.classList.add('hidden');
+                        if (loggedIn) loggedIn.classList.remove('hidden');
+                        if (loginBtn) loginBtn.classList.add('hidden');
+                        if (logoutBtn) logoutBtn.classList.remove('hidden');
+                        if (manageBtn) {
+                            if (this.isPro) manageBtn.classList.remove('hidden');
+                            else manageBtn.classList.add('hidden');
+                        }
                         if (avatar) {
+                            avatar.replaceChildren();
                             if (user.photoURL) {
-                                avatar.innerHTML = '<img src="'+user.photoURL+'" style="width:26px;height:26px;border-radius:50%;object-fit:cover">';
+                                var img = document.createElement('img');
+                                img.src = user.photoURL;
+                                img.alt = 'User Avatar';
+                                img.className = 'user-avatar-img';
+                                avatar.appendChild(img);
                             } else {
                                 avatar.textContent = (user.displayName || user.email || '?').charAt(0).toUpperCase();
                             }
                         }
                         if (emailSpan) emailSpan.textContent = user.displayName || user.email || '';
-                        if (proChip) proChip.style.display = this.isPro ? 'inline-block' : 'none';
+                        if (proChip) {
+                            if (this.isPro) proChip.classList.remove('hidden');
+                            else proChip.classList.add('hidden');
+                        }
                     } else {
-                        if (loggedOut) loggedOut.style.display = 'flex';
-                        if (loggedIn) loggedIn.style.display = 'none';
-                        if (loginBtn) loginBtn.style.display = 'block';
-                        if (logoutBtn) logoutBtn.style.display = 'none';
-                        if (manageBtn) manageBtn.style.display = 'none';
+                        if (loggedOut) loggedOut.classList.remove('hidden');
+                        if (loggedIn) loggedIn.classList.add('hidden');
+                        if (loginBtn) loginBtn.classList.remove('hidden');
+                        if (logoutBtn) logoutBtn.classList.add('hidden');
+                        if (manageBtn) manageBtn.classList.add('hidden');
                     }
                 },
 
@@ -582,7 +593,7 @@
                               + (this.subStatus === 'trialing' ? '<p style="font-size:12px;color:var(--txt3)">'+t('subTrialing')+'</p>' : '')
                             : '<p style="color:var(--err)">'+t('subInfoNone')+'</p>';
                     }
-                    if (cancelBtn) cancelBtn.style.display = 'none'; // Gestionat prin Stripe portal
+                    if (cancelBtn) cancelBtn.classList.add('hidden'); // Gestionat prin Stripe portal
                     if (modal) modal.classList.add('open');
                 },
 
@@ -596,13 +607,24 @@
 
                 updateProUI:function(){
                     var badge=$('proStatusBadge'),wm=$('cvWatermark');
-                    if(this.isPro){if(badge)badge.style.display='inline-block';if(wm)wm.classList.add('hidden');}
-                    else{if(badge)badge.style.display='none';if(wm)wm.classList.remove('hidden');}
+                    if(this.isPro){
+                        if(badge) badge.classList.remove('hidden');
+                        if(wm) wm.classList.add('hidden');
+                    } else {
+                        if(badge) badge.classList.add('hidden');
+                        if(wm) wm.classList.remove('hidden');
+                    }
                     // Actualizează și chip-ul din auth bar
                     var chip = $('authProChip');
-                    if (chip) chip.style.display = this.isPro ? 'inline-block' : 'none';
+                    if (chip) {
+                        if (this.isPro) chip.classList.remove('hidden');
+                        else chip.classList.add('hidden');
+                    }
                     var manageBtn = $('manageSubBtn');
-                    if (manageBtn) manageBtn.style.display = (this.isPro && this.currentUser) ? 'block' : 'none';
+                    if (manageBtn) {
+                        if (this.isPro && this.currentUser) manageBtn.classList.remove('hidden');
+                        else manageBtn.classList.add('hidden');
+                    }
                 },
 
                 checkStripeReturn:function(){
@@ -706,18 +728,14 @@
                     if(planOneTime && planMonthly) {
                         planOneTime.addEventListener('click', function(){
                             self.selectedPlan = 'onetime';
-                            planOneTime.style.borderColor = '#3b82f6';
-                            planOneTime.style.background = 'rgba(59,130,246,0.05)';
-                            planMonthly.style.borderColor = 'var(--border)';
-                            planMonthly.style.background = 'transparent';
+                            planOneTime.classList.add('pro-plan--selected');
+                            planMonthly.classList.remove('pro-plan--selected');
                             $('proPayBtn').textContent = 'Cumpără (3 EUR)';
                         });
                         planMonthly.addEventListener('click', function(){
                             self.selectedPlan = 'monthly';
-                            planMonthly.style.borderColor = '#3b82f6';
-                            planMonthly.style.background = 'rgba(59,130,246,0.05)';
-                            planOneTime.style.borderColor = 'var(--border)';
-                            planOneTime.style.background = 'transparent';
+                            planMonthly.classList.add('pro-plan--selected');
+                            planOneTime.classList.remove('pro-plan--selected');
                             $('proPayBtn').textContent = 'Cumpără PRO';
                         });
                     }
@@ -825,11 +843,10 @@
                     }
 
                     const btn = $('printBtn');
-                    const originalText = btn.innerHTML;
-                    btn.innerHTML = 'Se generează PDF... ⏳';
+                    const originalText = btn.textContent;
+                    btn.textContent = 'Se generează PDF... ⏳';
                     btn.disabled = true;
-                    btn.style.opacity = '0.7';
-                    btn.style.cursor = 'wait';
+                    btn.classList.add('btn--loading');
                     
                     var loadingOverlay = $('loadingOverlay');
                     if (loadingOverlay) loadingOverlay.classList.remove('hidden');
@@ -873,10 +890,9 @@
                             window.print();
                         }, 600);
                     } finally {
-                        btn.innerHTML = originalText;
+                        btn.textContent = originalText;
                         btn.disabled = false;
-                        btn.style.opacity = '1';
-                        btn.style.cursor = 'pointer';
+                        btn.classList.remove('btn--loading');
                         
                         if (loadingOverlay) loadingOverlay.classList.add('hidden');
                     }
@@ -1342,9 +1358,10 @@
 
                     var pct=Math.min(100,Math.round(score)),cls=pct>=70?'high':pct>=40?'medium':'low';
                     var badge=$('atsBadge');badge.textContent=pct;badge.className='ats-badge '+cls;
-                    var mini=$('atsMini');mini.textContent='ATS '+pct;mini.className='ats-mini '+cls;
-                    $('atsBar').style.width=pct+'%';
-                    $('atsBar').style.background=pct>=70?'var(--ok)':pct>=40?'var(--warn)':'var(--err)';
+                    var atsBar=$('atsBar');
+                    atsBar.style.width=pct+'%';
+                    atsBar.classList.remove('ats-bar--ok', 'ats-bar--warn', 'ats-bar--err');
+                    atsBar.classList.add(pct>=70?'ats-bar--ok':pct>=40?'ats-bar--warn':'ats-bar--err');
                     $('atsLbl').textContent=pct>=80?t('atsHigh'):pct>=60?t('atsMed'):pct>=40?t('atsLow'):t('atsEmpty');
 
                     $('atsGrid').innerHTML=checks.map(function(c){
@@ -1392,7 +1409,14 @@
                     var missing=jdKws.filter(function(w){return!matched.includes(w);}).slice(0,12);
                     var pct=jdKws.length?Math.round(matched.length/Math.min(jdKws.length,30)*100):0;
                     $('jdScoreText').textContent=Math.min(100,pct)+'%';
-                    $('jdMissingList').innerHTML=missing.map(function(w){return '<span style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#fca5a5;font-size:11px;padding:2px 8px;border-radius:12px;">'+w+'</span>';}).join('');
+                    var missingList = $('jdMissingList');
+                    missingList.replaceChildren();
+                    missing.forEach(function(w){
+                        var span = document.createElement('span');
+                        span.className = 'kw-missing-badge';
+                        span.textContent = w;
+                        missingList.appendChild(span);
+                    });
                 },
 
                 copyText:function(){
