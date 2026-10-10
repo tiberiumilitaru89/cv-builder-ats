@@ -406,7 +406,8 @@
 
         .field__ta {
             resize: vertical;
-            min-height: 72px
+            min-height: 72px;
+            height: var(--ta-height, auto);
         }
 
         @media(max-width:768px) {
@@ -1221,10 +1222,17 @@
                 position: absolute;
                 left: 0;
                 right: 0;
+                top: var(--page-break-top, 0px);
                 border-top: 2px dashed #f43f5e;
                 height: 0;
                 pointer-events: none;
                 z-index: 99;
+            }
+
+            .a4-temp-measure {
+                height: 297mm;
+                position: absolute;
+                visibility: hidden;
             }
 
             .page-break-label {
@@ -1890,6 +1898,210 @@
             font-size: 12px;
             color: var(--txt3);
             line-height: 1.5
+        }
+
+        /* ════════════════════════════════════
+           ZERO INLINE STYLING ARCHITECTURE
+        ════════════════════════════════════ */
+        .gdpr-checkbox-wrap {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+            margin-bottom: 16px;
+            font-size: 11.5px;
+            color: var(--txt3);
+            cursor: pointer;
+            line-height: 1.4;
+        }
+
+        .gdpr-checkbox-wrap input[type="checkbox"] {
+            margin-top: 2px;
+            accent-color: var(--accent);
+            width: 16px;
+            height: 16px;
+        }
+
+        .btn--google-full {
+            min-height: 48px;
+        }
+
+        .btn--file-label {
+            cursor: pointer;
+        }
+
+        .manage-sub-info {
+            margin-bottom: 16px;
+        }
+
+        .sub-info--active {
+            color: var(--ok);
+            margin-bottom: 8px;
+        }
+
+        .sub-info--trialing {
+            font-size: 12px;
+            color: var(--txt3);
+        }
+
+        .sub-info--none {
+            color: var(--err);
+        }
+
+        .pro-plans--grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .pro-plan--selectable {
+            cursor: pointer;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            transition: border-color 0.2s, background-color 0.2s;
+        }
+
+        .pro-plan--featured {
+            cursor: pointer;
+            border: 2px solid #3b82f6;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            position: relative;
+            background: rgba(59, 130, 246, 0.05);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            transition: border-color 0.2s, background-color 0.2s;
+        }
+
+        .pro-plan__badge--top {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #3b82f6;
+            color: #ffffff;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .pro-plan__price--onetime {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--txt);
+        }
+
+        .pro-plan__price--monthly {
+            font-size: 24px;
+            font-weight: 700;
+            color: #3b82f6;
+        }
+
+        .pro-plan__label--onetime {
+            color: var(--txt2);
+            font-size: 13px;
+        }
+
+        .pro-plan__label--monthly {
+            color: #3b82f6;
+            font-size: 13px;
+        }
+
+        .pro-plan__desc--standard {
+            color: var(--txt3);
+            font-size: 11px;
+            margin-top: 4px;
+        }
+
+        .auth-bar__guest-text {
+            font-size: 11px;
+            color: var(--txt3);
+        }
+
+        .auth-bar__actions-group {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .sec--jd {
+            border-color: #6366f1 !important;
+        }
+
+        .sec__hd--jd {
+            background: rgba(99, 102, 241, 0.12) !important;
+            color: #a5b4fc !important;
+        }
+
+        .field__textarea--jd {
+            border-color: #6366f1 !important;
+        }
+
+        .prog__fill--dynamic {
+            width: var(--ats-progress, 0%);
+        }
+
+        .ats-jd-analysis-box {
+            border-top: 1px solid var(--border);
+            padding-top: 10px;
+            margin-top: 4px;
+        }
+
+        .ats-kws-title--jd {
+            color: #818cf8;
+        }
+
+        .ats-jd-score-row {
+            font-size: 13px;
+            color: var(--txt2);
+            margin-bottom: 6px;
+        }
+
+        .ats-jd-score-val {
+            color: #818cf8;
+        }
+
+        .ats-jd-missing-lbl {
+            font-size: 11px;
+            color: var(--txt3);
+            margin-bottom: 6px;
+        }
+
+        .ats-jd-missing-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .ats-disclaimer-box {
+            font-size: 11px;
+            color: var(--txt3);
+            margin-top: 12px;
+            border-top: 1px solid var(--border);
+            padding-top: 10px;
+            line-height: 1.5;
+        }
+
+        .cv-desc-p {
+            margin-bottom: 3px;
+        }
+
+        .cv-item__title a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        .kw-row__fill--dynamic {
+            width: var(--kw-fill-width, 0%);
         }
         /* ════════════════════════════════════
    SECURE PRINT & EXPORT RULES

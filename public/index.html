@@ -86,13 +86,13 @@
             <h2 class="modal__title" id="loginH" data-i18n="loginModalTitle">🔐 Autentificare</h2>
             <p class="modal__body" id="loginModalBody" data-i18n="loginModalBody">Creează un cont gratuit sau autentifică-te pentru a accesa abonamentul PRO pe orice dispozitiv.</p>
             
-            <label class="gdpr-checkbox" style="display:flex; gap:8px; align-items:flex-start; margin-bottom:16px; font-size:11.5px; color:var(--txt3); cursor:pointer; line-height:1.4;">
-                <input type="checkbox" id="loginGdprCheck" style="margin-top:2px; accent-color:var(--accent); width:16px; height:16px;">
+            <label class="gdpr-checkbox-wrap">
+                <input type="checkbox" id="loginGdprCheck">
                 <span data-i18n="loginGdprLabel">Prin autentificare, ești de acord cu Termenii de Utilizare și cu prelucrarea datelor cu caracter personal (Nume, Email, poză profil) strict pentru cont și facturare.</span>
             </label>
 
             <div class="login-providers">
-                <button class="btn btn--google" id="loginGoogleBtn" style="min-height:48px">
+                <button class="btn btn--google btn--google-full" id="loginGoogleBtn">
                     <svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20H24v8h11.3C33.7 33.1 29.4 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.8 2.9l5.7-5.7C34.1 6.4 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 20-8 20-20 0-1.3-.1-2.7-.4-4z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.7 1.1 7.8 2.9l5.7-5.7C34.1 6.4 29.3 4 24 4c-7.7 0-14.4 4.2-17.7 10.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.3 26.8 36 24 36c-5.3 0-9.7-3-11.3-7.2l-6.6 4.9C9.7 39.9 16.4 44 24 44z"/><path fill="#1976D2" d="M43.6 20H24v8h11.3c-.8 2.4-2.3 4.5-4.4 6l6.2 5.2C40.7 35.5 44 30.2 44 24c0-1.3-.1-2.7-.4-4z"/></svg>
                     <span data-i18n="loginGoogleBtn">Continuă cu Google</span>
                 </button>
@@ -109,11 +109,11 @@
         <div class="modal">
             <h2 class="modal__title" id="manageSubH" data-i18n="manageSubTitle">⚙️ Abonament PRO</h2>
             <div class="modal__body" id="manageSubBody">
-                <div id="manageSubInfo" style="margin-bottom:16px"></div>
+                <div id="manageSubInfo" class="manage-sub-info"></div>
             </div>
             <div class="modal__acts">
                 <button class="btn btn--ol" id="manageSubClose" data-i18n="manageSubClose">Închide</button>
-                <button class="btn btn--danger btn--sm" id="cancelSubBtn" style="display:none" data-i18n="cancelSubBtn">Anulează abonamentul</button>
+                <button class="btn btn--danger btn--sm hidden" id="cancelSubBtn" data-i18n="cancelSubBtn">Anulează abonamentul</button>
             </div>
             <button class="manage-sub-link" id="openBillingPortal" data-i18n="openBillingPortal">Gestionează plăți în Stripe →</button>
         </div>
@@ -135,17 +135,17 @@
         <div class="modal pro-modal">
             <h2 class="modal__title" id="proH" data-i18n="modalProTitle">Deblochează Export PRO</h2>
             <p class="modal__body" id="proModalBody">Versiunea <strong>gratuită</strong> exportă cu watermark discret. Cu <strong>PRO</strong> obții PDF-ul curat, fără nicio siglă sau watermark.</p>
-            <div class="pro-plans" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
-                <div class="pro-plan" id="planOneTime" style="cursor:pointer; border: 2px solid var(--border); border-radius: 8px; padding: 12px; text-align: center; display: flex; flex-direction: column; justify-content: center;">
-                    <div class="pro-plan__price" style="font-size: 24px; font-weight: 700; color: var(--txt1);"><sup>EUR</sup>3</div>
-                    <div class="pro-plan__label" style="color: var(--txt2); font-size: 13px;" data-i18n="planOnetimeLabel">Plată Unică</div>
-                    <div class="pro-plan__desc" style="color: var(--txt3); font-size: 11px; margin-top: 4px;" data-i18n="planOnetimeDesc">1 Export fără watermark</div>
+            <div class="pro-plans pro-plans--grid">
+                <div class="pro-plan pro-plan--selectable" id="planOneTime">
+                    <div class="pro-plan__price pro-plan__price--onetime"><sup>EUR</sup>3</div>
+                    <div class="pro-plan__label pro-plan__label--onetime" data-i18n="planOnetimeLabel">Plată Unică</div>
+                    <div class="pro-plan__desc pro-plan__desc--standard" data-i18n="planOnetimeDesc">1 Export fără watermark</div>
                 </div>
-                <div class="pro-plan featured" id="planMonthly" style="cursor:pointer; border: 2px solid #3b82f6; border-radius: 8px; padding: 12px; text-align: center; position: relative; background: rgba(59,130,246,0.05); display: flex; flex-direction: column; justify-content: center;">
-                    <div class="pro-plan__badge" data-i18n="planBadge" style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #3b82f6; color: white; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; white-space: nowrap;">CEL MAI POPULAR</div>
-                    <div class="pro-plan__price" style="font-size: 24px; font-weight: 700; color: #3b82f6;"><sup>EUR</sup>5</div>
-                    <div class="pro-plan__label" data-i18n="planMonthlyLabel" style="color: #3b82f6; font-size: 13px;">/ lună</div>
-                    <div class="pro-plan__desc" style="color: var(--txt3); font-size: 11px; margin-top: 4px;" data-i18n="planMonthlyDesc">Exporturi nelimitate</div>
+                <div class="pro-plan featured pro-plan--featured" id="planMonthly">
+                    <div class="pro-plan__badge pro-plan__badge--top" data-i18n="planBadge">CEL MAI POPULAR</div>
+                    <div class="pro-plan__price pro-plan__price--monthly"><sup>EUR</sup>5</div>
+                    <div class="pro-plan__label pro-plan__label--monthly" data-i18n="planMonthlyLabel">/ lună</div>
+                    <div class="pro-plan__desc pro-plan__desc--standard" data-i18n="planMonthlyDesc">Exporturi nelimitate</div>
                 </div>
             </div>
             <ul class="pro-features">
@@ -168,7 +168,7 @@
             <div class="sb-actions">
                 <button class="lang-btn" id="langToggle" title="Switch Language / Schimbă Limba">🇬🇧 EN</button>
                 <button class="btn btn--ol btn--sm" id="exportBtn" title="Ctrl+S" data-i18n="btnSaveJSON">Salvare JSON</button>
-                <label class="btn btn--ol btn--sm" style="cursor:pointer"><span data-i18n="btnImport">Importă</span><input type="file" id="importInput" accept=".json" class="sr-only"></label>
+                <label class="btn btn--ol btn--sm btn--file-label"><span data-i18n="btnImport">Importă</span><input type="file" id="importInput" accept=".json" class="sr-only"></label>
             </div>
         </div>
 
@@ -176,19 +176,19 @@
         <div class="auth-bar" id="authBar">
             <!-- Logged OUT state -->
             <div id="authLoggedOut" class="auth-bar__status">
-                <span style="font-size:11px;color:var(--txt3)" data-i18n="authNotLogged">Neautentificat</span>
+                <span class="auth-bar__guest-text" data-i18n="authNotLogged">Neautentificat</span>
             </div>
             <!-- Logged IN state (hidden by default) -->
-            <div id="authLoggedIn" class="auth-bar__status" style="display:none">
+            <div id="authLoggedIn" class="auth-bar__status hidden">
                 <div class="auth-avatar" id="authAvatar">?</div>
                 <span class="auth-email" id="authEmailSpan"></span>
-                <span class="auth-pro-chip" id="authProChip" style="display:none">PRO</span>
+                <span class="auth-pro-chip hidden" id="authProChip">PRO</span>
             </div>
             <!-- Buttons -->
-            <div style="display:flex;gap:6px;flex-shrink:0">
-                <button class="btn btn--ol btn--xs" id="loginOpenBtn" style="display:block" data-i18n="btnLogin">Login</button>
-                <button class="btn btn--ghost btn--xs" id="logoutBtn" style="display:none" title="Delogare" data-i18n-title="btnLogout">↩</button>
-                <button class="btn btn--ol btn--xs" id="manageSubBtn" style="display:none" title="Abonament" data-i18n-title="btnManageSub">⚙️</button>
+            <div class="auth-bar__actions-group">
+                <button class="btn btn--ol btn--xs" id="loginOpenBtn" data-i18n="btnLogin">Login</button>
+                <button class="btn btn--ghost btn--xs hidden" id="logoutBtn" title="Delogare" data-i18n-title="btnLogout">↩</button>
+                <button class="btn btn--ol btn--xs hidden" id="manageSubBtn" title="Abonament" data-i18n-title="btnManageSub">⚙️</button>
             </div>
         </div>
 
@@ -223,8 +223,8 @@
         </div>
 
         <!-- ACCORDION: JOB DESCRIPTION COMPARATOR -->
-        <div class="sec" data-id="jd" style="border-color:#6366f1">
-            <div class="sec__hd" style="background:rgba(99,102,241,.12);color:#a5b4fc"><span
+        <div class="sec sec--jd" data-id="jd">
+            <div class="sec__hd sec__hd--jd"><span
                     class="sec__icon">🎯</span><span class="sec__label" data-i18n="secJD">Compatibilitate Anunț Job (JD)</span><svg
                     class="chevron" viewBox="0 0 20 20">
                     <path fill-rule="evenodd"
@@ -233,9 +233,9 @@
             <div class="sec__body">
                 <div class="field">
                     <label class="field__lbl" for="in-jd" data-i18n="lblJD">Lipește descrierea jobului căutat (JD)</label>
-                    <textarea id="in-jd" class="field__ta" rows="5"
+                    <textarea id="in-jd" class="field__ta field__textarea--jd" rows="5"
                         placeholder="Lipește aici cerințele și responsabilitățile postului pentru a verifica automat potrivirea cu CV-ul..."
-                        style="border-color:#6366f1" data-i18n-ph="phJD"></textarea>
+                        data-i18n-ph="phJD"></textarea>
                 </div>
             </div>
         </div>
@@ -416,7 +416,7 @@
         <div class="toolbar">
             <div class="toolbar__l">
                 <span class="save-ind" id="saveInd" aria-live="polite"><span class="save-ind__dot"></span><span id="saveIndText" data-i18n="toastSaved">Salvat în browser</span></span>
-                <span class="pro-badge" id="proStatusBadge" style="display:none">PRO Activ</span>
+                <span class="pro-badge hidden" id="proStatusBadge">PRO Activ</span>
             </div>
             <div class="toolbar__r">
                 <button class="btn btn--ol btn--sm" id="copyBtn" title="Copiază textul brut al CV-ului" data-i18n="btnCopyText">📋 Copiază Text</button>
@@ -434,7 +434,7 @@
                     <div class="ats-info">
                         <div class="ats-lbl" id="atsLbl" data-i18n="atsEmptyStart">Completează datele din stânga pentru a analiza profilul</div>
                         <div class="prog">
-                            <div class="prog__fill" id="atsBar" style="width:0%"></div>
+                            <div class="prog__fill prog__fill--dynamic" id="atsBar"></div>
                         </div>
                     </div>
                 </div>
@@ -443,16 +443,15 @@
                     <div class="ats-kws-title" data-i18n="atsKwTitle">🔑 Densitate Cuvinte Cheie Detectate (Top 10)</div>
                     <div id="atsKwList"></div>
                 </div>
-                <div id="jdMatchPanel" class="hidden"
-                    style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
-                    <div class="ats-kws-title" style="color:#818cf8" data-i18n="jdTitle">Analiză Comparativă cu Fișa Postului</div>
-                    <div style="font-size:13px;color:var(--txt2);margin-bottom:6px"><span data-i18n="jdScore">Rată potrivire:</span> <strong
-                            id="jdScoreText" style="color:#818cf8">0%</strong></div>
-                    <div style="font-size:11px;color:var(--txt3);margin-bottom:6px" data-i18n="jdMissing">Cuvinte cheie absente din CV-ul tău:</div>
-                    <div id="jdMissingList" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+                <div id="jdMatchPanel" class="hidden ats-jd-analysis-box">
+                    <div class="ats-kws-title ats-kws-title--jd" data-i18n="jdTitle">Analiză Comparativă cu Fișa Postului</div>
+                    <div class="ats-jd-score-row"><span data-i18n="jdScore">Rată potrivire:</span> <strong
+                            id="jdScoreText" class="ats-jd-score-val">0%</strong></div>
+                    <div class="ats-jd-missing-lbl" data-i18n="jdMissing">Cuvinte cheie absente din CV-ul tău:</div>
+                    <div id="jdMissingList" class="ats-jd-missing-tags"></div>
                 </div>
                 <div id="atsPits"></div>
-                <div class="ats-disclaimer" style="font-size:11px; color:var(--txt3); margin-top:12px; border-top:1px solid var(--border); padding-top:10px; line-height:1.5;">
+                <div class="ats-disclaimer ats-disclaimer-box">
                     <span data-i18n="atsDisclaimer">ℹ️ Analiza ATS este orientativă. Sistemele companiei pot varia în funcție de parserul utilizat (Taleo, Workday, etc). Scopul acestui scor este să îți valideze prezența cuvintelor cheie și formatarea corectă.</span>
                 </div>
             </div>

@@ -22,3 +22,7 @@ Acest director reprezintă Sursa Unică de Adevăr (SSOT) pentru arhitectura, re
    - Apărare Anti-SSRF și Server-Side XSS în Puppeteer (dezactivare JavaScript, ecranare HTML completă, validare strictă URL/data: URI pentru foto).
    - Prevenirea scurgerilor de procese (Lifecycle management: `finally { await browser.close() }`).
    - Rate limiting pe Cloud Functions și protecție webhook Stripe prin semnătură criptografică `stripe-signature`.
+4. [Securitate Frontend & Zero Inline Styling](file:///d:/Antigravity/cv-builder-ats/.knowledge/security/frontend-hardening-and-csp.md)
+   - Eliminare completă a atributelor de stil inline și a apelurilor `innerHTML` brute.
+   - Izolare variabile CSS dinamice (`--ats-progress`, `--kw-fill-width`, `--ta-height`, `--page-break-top`).
+   - Sanitizare deterministă prin `setSafeContent()` și `DOMPurify`.
