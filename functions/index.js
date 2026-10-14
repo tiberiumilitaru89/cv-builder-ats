@@ -64,8 +64,7 @@ const cors = require('cors')({
         if (isAllowed) {
             return callback(null, true);
         }
-        // Permitem și domenii specifice de producție configurate
-        return callback(null, true);
+        return callback(new Error('Blocat de politica de securitate CORS. Originea nu este autorizată.'));
     }
 });
 
@@ -133,6 +132,34 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
         const session = event.data.object;
         const customerEmail = session.customer_details ? session.customer_details.email : null;
         const firebaseUid = session.client_reference_id;
+        const eventId = event.id;
+
+        // BARIERĂ DETERMINISTĂ DE IDEMPOTENȚĂ (Elimină Double-Spend la retry de rețea)
+        const processedEventRef = db.collection('processed_stripe_events').doc(eventId);
+        try {
+            const alreadyProcessed = await db.runTransaction(async (transaction) => {
+                const eventDoc = await transaction.get(processedEventRef);
+                if (eventDoc.exists) {
+                    return true;
+                }
+                transaction.set(processedEventRef, {
+                    eventId,
+                    processedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    type: event.type,
+                    customerId: session.customer || null,
+                    clientReferenceId: firebaseUid || null
+                });
+                return false;
+            });
+
+            if (alreadyProcessed) {
+                functions.logger.info("Stripe event already processed, skipping mutation", { eventId });
+                return res.json({ received: true, already_processed: true });
+            }
+        } catch (trxErr) {
+            functions.logger.error("Error checking webhook idempotency", { error: trxErr.message, eventId });
+            return res.status(500).send("Eroare verificare idempotență.");
+        }
 
         const usersRef = db.collection('users');
         const isSubscription = session.mode === 'subscription';
@@ -161,8 +188,6 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
                         batch.set(usersRef.doc(doc.id), subscriptionData, { merge: true });
                     });
                     await batch.commit();
-                } else {
-                    await usersRef.doc(customerEmail).set(subscriptionData, { merge: true });
                 }
             }
         } catch (dbErr) {
@@ -198,24 +223,29 @@ exports.generatePDF = functions.runWith({ memory: '2GB', timeoutSeconds: 60 }).h
         let browser = null;
 
         try {
-            // Verificare criptografică statut PRO via Firebase Auth ID Token
+            // Verificare criptografică statut PRO & tranzacție atomică pe credite (elimină race conditions)
             let isPro = false;
             if (token && typeof token === 'string') {
                 try {
                     const decodedToken = await admin.auth().verifyIdToken(token);
                     const uid = decodedToken.uid;
-                    const userDoc = await db.collection('users').doc(uid).get();
-                    if (userDoc.exists) {
-                        const data = userDoc.data();
+                    const userRef = db.collection('users').doc(uid);
+
+                    await db.runTransaction(async (transaction) => {
+                        const userDoc = await transaction.get(userRef);
+                        if (!userDoc.exists) return;
+                        const data = userDoc.data() || {};
                         if (data.isPro) {
                             isPro = true;
-                        } else if (typeof data.exportCredits === 'number' && data.exportCredits > 0) {
+                            return;
+                        }
+                        if (typeof data.exportCredits === 'number' && data.exportCredits > 0) {
                             isPro = true;
-                            await db.collection('users').doc(uid).update({
-                                exportCredits: admin.firestore.FieldValue.increment(-1)
+                            transaction.update(userRef, {
+                                exportCredits: data.exportCredits - 1
                             });
                         }
-                    }
+                    });
                 } catch (authErr) {
                     functions.logger.warn("Invalid or expired token", { error: authErr.message });
                 }

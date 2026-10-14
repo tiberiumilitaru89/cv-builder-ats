@@ -1,0 +1,9 @@
+{
+  "name": "cv-builder-ats",
+  "version": "1.0.0",
+  "description": "CV Builder PRO & ATS Analyzer - Vanilla SPA & Firebase Cloud Functions",
+  "private": true,
+  "scripts": {
+    "gatekeeper": "node -c public/app.js functions/index.js functions/cv-styles.js"
+  }
+}

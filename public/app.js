@@ -393,13 +393,12 @@
                     elem.textContent = str;
                     return;
                 }
-                var clean = DOMPurify.sanitize(str, {
+                var cleanFragment = DOMPurify.sanitize(str, {
                     ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'p', 'ul', 'li', 'span', 'code'],
-                    ALLOWED_ATTR: ['class']
+                    ALLOWED_ATTR: ['class'],
+                    RETURN_DOM_FRAGMENT: true
                 });
-                var tpl = document.createElement('template');
-                tpl.innerHTML = clean;
-                elem.appendChild(tpl.content);
+                elem.appendChild(cleanFragment);
             }
             function esc(s){return s ? DOMPurify.sanitize(s + '', { ALLOWED_TAGS: [], ALLOWED_ATTR: [] }) : '';}
             function safeUrl(u){if(!u)return'';var t=u.trim();if(/^(javascript:|data:|vbscript:)/i.test(t))return'#';return t.startsWith('http')?t:'https://'+t;}
