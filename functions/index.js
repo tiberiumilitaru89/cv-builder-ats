@@ -14,7 +14,9 @@ const db = getFirestore();
 // ════════════════════════════════════════════════════════════════
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW_MS = 2 * 60 * 1000; // 2 minute
+const RATE_LIMIT_WINDOW_SECONDS = 120;
 const MAX_REQUESTS_PER_WINDOW = 6;
+const MAX_PAYLOAD_BYTES = 512 * 1024; // 512 KB Denial-of-Wallet guard
 
 function cleanupRateLimits() {
     if (rateLimitMap.size > 500) {
@@ -45,6 +47,40 @@ function isRateLimited(key) {
 
     record.count += 1;
     return false;
+}
+
+async function isRateLimitedAsync(key) {
+    if (!key || key === 'unknown') return false;
+
+    const kvUrl = (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '').trim();
+    const kvToken = (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '').trim();
+
+    if (kvUrl && kvToken) {
+        try {
+            const redisKey = `cvbuilder:rl:${key}`;
+            const res = await fetch(`${kvUrl.replace(/\/$/, '')}/pipeline`, {
+                method: 'POST',
+                signal: AbortSignal.timeout(1500),
+                headers: {
+                    'Authorization': `Bearer ${kvToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify([
+                    ['INCR', redisKey],
+                    ['EXPIRE', redisKey, RATE_LIMIT_WINDOW_SECONDS, 'NX']
+                ])
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const currentCount = Array.isArray(data) && data[0] ? Number(data[0].result) : 1;
+                return currentCount > MAX_REQUESTS_PER_WINDOW;
+            }
+        } catch (_) {
+            // Fallback in-memory dacă store-ul distribuit nu răspunde în 1.5s
+        }
+    }
+
+    return isRateLimited(key);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -81,25 +117,94 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
+function isPrivateOrInternalUrl(urlStr) {
+    try {
+        const parsed = new URL(urlStr);
+        const host = (parsed.hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
+        if (!host) return true;
+        if (
+            host === 'localhost' ||
+            host === '0.0.0.0' ||
+            host === '::1' ||
+            host === '0:0:0:0:0:0:0:1' ||
+            host.endsWith('.internal') ||
+            host.endsWith('.local') ||
+            host.includes('metadata.google')
+        ) {
+            return true;
+        }
+        // Blocare IPv6 link-local & unique-local
+        if (/^(fe80:|fc00:|fd00:)/i.test(host)) {
+            return true;
+        }
+        // Blocare IPv4 private / loopback / link-local (RFC 1918 + 169.254.0.0/16 + 127.0.0.0/8)
+        const ipv4Match = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+        if (ipv4Match) {
+            const [, a, b] = ipv4Match.map(Number);
+            if (
+                a === 10 ||
+                a === 127 ||
+                a === 0 ||
+                (a === 169 && b === 254) ||
+                (a === 192 && b === 168) ||
+                (a === 172 && b >= 16 && b <= 31) ||
+                (a === 100 && b >= 64 && b <= 127)
+            ) {
+                return true;
+            }
+        }
+        return false;
+    } catch (_) {
+        return true;
+    }
+}
+
+function hasValidMagicBytes(buffer, type) {
+    if (!Buffer.isBuffer(buffer) || buffer.length < 4) return false;
+    if (type === 'jpeg' || type === 'jpg') {
+        return buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF;
+    }
+    if (type === 'png') {
+        return (
+            buffer.length >= 8 &&
+            buffer[0] === 0x89 &&
+            buffer[1] === 0x50 &&
+            buffer[2] === 0x4E &&
+            buffer[3] === 0x47
+        );
+    }
+    if (type === 'webp') {
+        return (
+            buffer.length >= 12 &&
+            buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+            buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+        );
+    }
+    if (type === 'pdf') {
+        return buffer.length >= 5 && buffer.subarray(0, 5).toString('ascii') === '%PDF-';
+    }
+    if (type === 'docx') {
+        return buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04;
+    }
+    return false;
+}
+
 function sanitizePhotoUrl(url) {
     if (typeof url !== 'string' || !url) return '';
     const trimmed = url.trim();
 
-    // Permite doar data:image base64 securizat
-    if (/^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+$/.test(trimmed)) {
-        return trimmed;
+    // Permite data:image base64 doar după validarea semnăturii binare Magic Bytes
+    const dataMatch = trimmed.match(/^data:image\/(png|jpeg|jpg|webp);base64,([A-Za-z0-9+/=]+)$/);
+    if (dataMatch) {
+        const imgType = dataMatch[1];
+        const b64Sample = dataMatch[2].slice(0, 32);
+        const buf = Buffer.from(b64Sample, 'base64');
+        return hasValidMagicBytes(buf, imgType) ? trimmed : '';
     }
 
-    // Permite doar URL-uri HTTPS externe legitime, blocând IP-urile private/interne
+    // Permite doar URL-uri HTTPS externe legitime, blocând IP-urile private/interne (Anti-SSRF)
     if (/^https:\/\/[^\s$.?#].[^\s]*$/i.test(trimmed)) {
-        const lower = trimmed.toLowerCase();
-        if (
-            lower.includes('169.254.') ||
-            lower.includes('127.0.0.1') ||
-            lower.includes('localhost') ||
-            lower.includes('0.0.0.0') ||
-            lower.includes('metadata.google')
-        ) {
+        if (isPrivateOrInternalUrl(trimmed)) {
             return '';
         }
         return trimmed;
@@ -208,10 +313,16 @@ exports.generatePDF = functions.runWith({ memory: '2GB', timeoutSeconds: 60 }).h
             return res.status(405).send('Method Not Allowed');
         }
 
-        // Rate limiting pe IP
+        // Rate limiting distribuit hibrid pe IP
         const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
-        if (isRateLimited(clientIp)) {
+        if (await isRateLimitedAsync(clientIp)) {
             return res.status(429).send('Prea multe solicitări de export PDF. Te rugăm să aștepți 2 minute.');
+        }
+
+        // Guard dimensiune payload (Denial-of-Wallet guard: max 512 KB)
+        const rawBodyLen = req.rawBody ? req.rawBody.length : JSON.stringify(req.body || {}).length;
+        if (rawBodyLen > MAX_PAYLOAD_BYTES) {
+            return res.status(413).send('Payload-ul CV-ului depășește limita maximă admisă (512 KB).');
         }
 
         const { cvData, token } = req.body;
@@ -223,7 +334,7 @@ exports.generatePDF = functions.runWith({ memory: '2GB', timeoutSeconds: 60 }).h
         let browser = null;
 
         try {
-            // Verificare criptografică statut PRO & tranzacție atomică pe credite (elimină race conditions)
+            // Verificare criptografică statut PRO & tranzacție atomică pe credite cu Ledger append-only
             let isPro = false;
             if (token && typeof token === 'string') {
                 try {
@@ -235,14 +346,29 @@ exports.generatePDF = functions.runWith({ memory: '2GB', timeoutSeconds: 60 }).h
                         const userDoc = await transaction.get(userRef);
                         if (!userDoc.exists) return;
                         const data = userDoc.data() || {};
-                        if (data.isPro) {
+                        if (data.isPro === true) {
                             isPro = true;
                             return;
                         }
-                        if (typeof data.exportCredits === 'number' && data.exportCredits > 0) {
+                        const currentCredits = Number.isInteger(data.exportCredits)
+                            ? data.exportCredits
+                            : Math.floor(Number(data.exportCredits || 0));
+                        if (currentCredits > 0) {
+                            const newBalance = currentCredits - 1;
+                            if (newBalance < 0) {
+                                throw new Error('Invariant violation: negative credit balance');
+                            }
                             isPro = true;
                             transaction.update(userRef, {
-                                exportCredits: data.exportCredits - 1
+                                exportCredits: newBalance
+                            });
+                            const ledgerRef = db.collection('credit_ledger').doc();
+                            transaction.set(ledgerRef, {
+                                uid,
+                                type: 'DEBIT_EXPORT',
+                                delta: -1,
+                                balanceAfter: newBalance,
+                                createdAt: admin.firestore.FieldValue.serverTimestamp()
                             });
                         }
                     });
@@ -375,7 +501,7 @@ exports.generatePDF = functions.runWith({ memory: '2GB', timeoutSeconds: 60 }).h
             // 1. Dezactivare completă interpretare JS (Elimină Server-Side XSS la zero)
             await page.setJavaScriptEnabled(false);
 
-            // 2. Interceptare cereri: blocare protocoale interne, rețele locale & Google Cloud Metadata
+            // 2. Interceptare cereri: blocare protocoale interne, rețele locale RFC 1918 & Google Cloud Metadata (Anti-SSRF)
             await page.setRequestInterception(true);
             page.on('request', (interceptedReq) => {
                 const reqUrl = (interceptedReq.url() || '').toLowerCase();
@@ -383,11 +509,9 @@ exports.generatePDF = functions.runWith({ memory: '2GB', timeoutSeconds: 60 }).h
                     reqUrl.startsWith('file:') ||
                     reqUrl.startsWith('gopher:') ||
                     reqUrl.startsWith('ftp:') ||
-                    reqUrl.includes('169.254.169.254') ||
-                    reqUrl.includes('metadata.google') ||
-                    reqUrl.includes('localhost') ||
-                    reqUrl.includes('127.0.0.1') ||
-                    reqUrl.includes('0.0.0.0')
+                    reqUrl.startsWith('ws:') ||
+                    reqUrl.startsWith('wss:') ||
+                    (!reqUrl.startsWith('data:image/') && isPrivateOrInternalUrl(reqUrl))
                 ) {
                     return interceptedReq.abort();
                 }

@@ -1006,20 +1006,34 @@
                 handlePhoto:function(e){
                     var self=this,f=e.target.files[0];if(!f)return;
                     if(f.size>2*1024*1024){this.toast(t('toastPhotoSize'),'error');return;}
-                    var r=new FileReader();
-                    r.onload=function(ev){
-                        var img=new Image();
-                        img.onload=function(){
-                            var c=document.createElement('canvas'),MAX=200,w=img.width,h=img.height;
-                            if(w>h){if(w>MAX){h=h*MAX/w;w=MAX;}}else{if(h>MAX){w=w*MAX/h;h=MAX;}}
-                            c.width=w;c.height=h;
-                            c.getContext('2d').drawImage(img,0,0,w,h);
-                            self.s.photo=c.toDataURL('image/jpeg',.75);
-                            self.fullRender();
+                    // Validare binară Magic Bytes înainte de parsarea imaginii (JPG/PNG/WEBP)
+                    var hdrReader=new FileReader();
+                    hdrReader.onload=function(hdrEv){
+                        var arr=new Uint8Array(hdrEv.target.result);
+                        var isJpg=arr.length>=3&&arr[0]===0xFF&&arr[1]===0xD8&&arr[2]===0xFF;
+                        var isPng=arr.length>=8&&arr[0]===0x89&&arr[1]===0x50&&arr[2]===0x4E&&arr[3]===0x47;
+                        var isWebp=arr.length>=12&&arr[0]===0x52&&arr[1]===0x49&&arr[2]===0x46&&arr[3]===0x46&&arr[8]===0x57&&arr[9]===0x45&&arr[10]===0x42&&arr[11]===0x50;
+                        if(!isJpg&&!isPng&&!isWebp){
+                            self.toast(currentLang==='ro'?'Format imagine nesuportat (Semnătură binară invalidă).':'Unsupported image format (Invalid magic bytes).','error');
+                            e.target.value='';
+                            return;
+                        }
+                        var r=new FileReader();
+                        r.onload=function(ev){
+                            var img=new Image();
+                            img.onload=function(){
+                                var c=document.createElement('canvas'),MAX=200,w=img.width,h=img.height;
+                                if(w>h){if(w>MAX){h=h*MAX/w;w=MAX;}}else{if(h>MAX){w=w*MAX/h;h=MAX;}}
+                                c.width=w;c.height=h;
+                                c.getContext('2d').drawImage(img,0,0,w,h);
+                                self.s.photo=c.toDataURL('image/jpeg',.75);
+                                self.fullRender();
+                            };
+                            img.src=ev.target.result;
                         };
-                        img.src=ev.target.result;
+                        r.readAsDataURL(f);
                     };
-                    r.readAsDataURL(f);
+                    hdrReader.readAsArrayBuffer(f.slice(0,16));
                 },
 
                 smartParse:function(type){
