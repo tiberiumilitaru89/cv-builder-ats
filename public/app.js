@@ -414,6 +414,7 @@
                 _unsubAuth: null,
 
                 init:function(){
+                    var gf=$('gfonts');if(gf)gf.media='all';
                     this.loadProfiles();
                     this.bindAccordions();
                     this.bindTabs();
