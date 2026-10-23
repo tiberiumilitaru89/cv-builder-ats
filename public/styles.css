@@ -11,11 +11,11 @@
             --txt: #f8fafc;
             --txt2: #94a3b8;
             --txt3: #64748b;
-            --accent: #3b82f6;
-            --ok: #10b981;
+            --accent: #2563eb;
+            --ok: #047857;
             --warn: #f59e0b;
             --err: #ef4444;
-            --cv-accent: #3b82f6;
+            --cv-accent: #2563eb;
             --cv-font: 'Inter', sans-serif;
             --cv-pad: 20mm;
             --cv-size: 14px;
@@ -50,9 +50,18 @@
             color: var(--txt);
             min-height: 100vh;
             display: flex;
+            flex-direction: column;
+            padding: 0;
+            gap: 0;
+            overflow-x: hidden;
+        }
+
+        .app-main {
+            display: flex;
+            flex: 1;
             padding: 16px;
             gap: 16px;
-            overflow-x: hidden;
+            width: 100%;
         }
 
         /* ════════════════════════════════════
@@ -121,7 +130,7 @@
         }
 
         .ats-mini.empty {
-            color: var(--txt3);
+            color: var(--txt2);
             border-color: var(--border-md)
         }
 
@@ -131,6 +140,12 @@
                 padding: 0;
                 gap: 0;
                 padding-bottom: 80px
+            }
+
+            .app-main {
+                flex-direction: column;
+                padding: 0;
+                gap: 0;
             }
 
             .tab-bar {
@@ -230,7 +245,7 @@
         .app-title small {
             font-size: 11px;
             font-weight: 400;
-            color: var(--txt3);
+            color: var(--txt2);
             display: block;
             letter-spacing: 0
         }
@@ -273,7 +288,7 @@
             font-size: 10px;
             font-weight: 700;
             text-transform: uppercase;
-            color: var(--txt3);
+            color: var(--txt2);
             letter-spacing: .08em;
             display: block;
             margin-bottom: 6px;
@@ -385,7 +400,7 @@
             font-size: 10.5px;
             font-weight: 700;
             text-transform: uppercase;
-            color: var(--txt3);
+            color: var(--txt2);
             letter-spacing: .07em
         }
 
@@ -440,7 +455,7 @@
 
         .field__hint {
             font-size: 11px;
-            color: var(--txt3);
+            color: var(--txt2);
             margin-top: 2px
         }
 
@@ -780,7 +795,7 @@
         .empty-hint {
             text-align: center;
             padding: 18px 12px;
-            color: var(--txt3);
+            color: var(--txt2);
             font-size: 12.5px;
             line-height: 1.6
         }
@@ -954,7 +969,7 @@
 
         .ats__arr {
             font-size: 11px;
-            color: var(--txt3);
+            color: var(--txt2);
             transition: transform .2s
         }
 
@@ -1009,7 +1024,7 @@
         }
 
         .ats-badge.empty {
-            color: var(--txt3);
+            color: var(--txt2);
             border-color: var(--border-md)
         }
 
@@ -1089,7 +1104,7 @@
         .ats-kws-title {
             font-size: 12px;
             font-weight: 600;
-            color: var(--txt3);
+            color: var(--txt2);
             margin-bottom: 6px
         }
 
@@ -1649,7 +1664,7 @@
 
         .pro-plan__label {
             font-size: 11px;
-            color: var(--txt3);
+            color: var(--txt2);
             margin-top: 4px;
             font-weight: 600;
             text-transform: uppercase;
@@ -1785,7 +1800,7 @@
         .login-divider {
             text-align: center;
             font-size: 11px;
-            color: var(--txt3);
+            color: var(--txt2);
             margin: 4px 0 10px;
         }
 
@@ -1793,7 +1808,7 @@
             display: block;
             text-align: center;
             font-size: 11.5px;
-            color: var(--txt3);
+            color: var(--txt2);
             margin-top: 12px;
             cursor: pointer;
             text-decoration: underline;
@@ -1896,7 +1911,7 @@
 
         .hint-txt {
             font-size: 12px;
-            color: var(--txt3);
+            color: var(--txt2);
             line-height: 1.5
         }
 
@@ -1909,7 +1924,7 @@
             align-items: flex-start;
             margin-bottom: 16px;
             font-size: 11.5px;
-            color: var(--txt3);
+            color: var(--txt2);
             cursor: pointer;
             line-height: 1.4;
         }
@@ -1940,7 +1955,7 @@
 
         .sub-info--trialing {
             font-size: 12px;
-            color: var(--txt3);
+            color: var(--txt2);
         }
 
         .sub-info--none {
@@ -2017,14 +2032,14 @@
         }
 
         .pro-plan__desc--standard {
-            color: var(--txt3);
+            color: var(--txt2);
             font-size: 11px;
             margin-top: 4px;
         }
 
         .auth-bar__guest-text {
             font-size: 11px;
-            color: var(--txt3);
+            color: var(--txt2);
         }
 
         .auth-bar__actions-group {
@@ -2072,7 +2087,7 @@
 
         .ats-jd-missing-lbl {
             font-size: 11px;
-            color: var(--txt3);
+            color: var(--txt2);
             margin-bottom: 6px;
         }
 
@@ -2084,7 +2099,7 @@
 
         .ats-disclaimer-box {
             font-size: 11px;
-            color: var(--txt3);
+            color: var(--txt2);
             margin-top: 12px;
             border-top: 1px solid var(--border);
             padding-top: 10px;
