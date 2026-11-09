@@ -1,22 +1,61 @@
+// @ts-check
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
 const puppeteer = require('puppeteer-core');
 const chromium = require('@sparticuz/chromium');
-const { getFirestore } = require("firebase-admin/firestore");
+const { getFirestore } = require('firebase-admin/firestore');
 const { CV_BASE_STYLES } = require('./cv-styles');
+const {
+    ALLOWED_ORIGINS,
+    getCorrelationId,
+    sendProblem,
+    isAllowedOrigin,
+    escapeHtml,
+    isPrivateOrInternalUrl,
+    sanitizePhotoUrl,
+    handleHealthz
+} = require('./security-core');
 
-admin.initializeApp();
+if (!admin.apps.length) {
+    admin.initializeApp();
+}
 const db = getFirestore();
 
 // ════════════════════════════════════════════════════════════════
-// RATE LIMITING SERVERLESS (Sliding Window in-memory)
+// OBSERVABILITATE, CORRELATION ID & RFC 7807 PROBLEM DETAILS
+// ════════════════════════════════════════════════════════════════
+function logStructured(level, event, correlationId, details = {}) {
+    const payload = {
+        timestamp: new Date().toISOString(),
+        correlation_id: correlationId,
+        level,
+        event,
+        ...details
+    };
+    if (level === 'error') {
+        functions.logger.error(event, payload);
+    } else if (level === 'warn') {
+        functions.logger.warn(event, payload);
+    } else {
+        functions.logger.info(event, payload);
+    }
+}
+
+// ════════════════════════════════════════════════════════════════
+// RATE LIMITING SERVERLESS (Sliding Window in-memory + Redis)
 // ════════════════════════════════════════════════════════════════
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW_MS = 2 * 60 * 1000; // 2 minute
 const RATE_LIMIT_WINDOW_SECONDS = 120;
 const MAX_REQUESTS_PER_WINDOW = 6;
 const MAX_PAYLOAD_BYTES = 512 * 1024; // 512 KB Denial-of-Wallet guard
+const MAX_PHOTO_DATA_URI_LENGTH = Math.floor(2.5 * 1024 * 1024); // 2.5 MB
+
+function normalizeRateLimitKey(key) {
+    const trimmed = typeof key === 'string' ? key.trim() : '';
+    return (!trimmed || trimmed.toLowerCase() === 'unknown') ? 'global_unknown_ip' : trimmed;
+}
 
 function cleanupRateLimits() {
     if (rateLimitMap.size > 500) {
@@ -30,14 +69,14 @@ function cleanupRateLimits() {
 }
 
 function isRateLimited(key) {
-    if (!key || key === 'unknown') return false;
+    const bucketKey = normalizeRateLimitKey(key);
     cleanupRateLimits();
 
     const now = Date.now();
-    const record = rateLimitMap.get(key);
+    const record = rateLimitMap.get(bucketKey);
 
     if (!record || now - record.startTime > RATE_LIMIT_WINDOW_MS) {
-        rateLimitMap.set(key, { count: 1, startTime: now });
+        rateLimitMap.set(bucketKey, { count: 1, startTime: now });
         return false;
     }
 
@@ -50,14 +89,14 @@ function isRateLimited(key) {
 }
 
 async function isRateLimitedAsync(key) {
-    if (!key || key === 'unknown') return false;
+    const bucketKey = normalizeRateLimitKey(key);
 
     const kvUrl = (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '').trim();
     const kvToken = (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '').trim();
 
     if (kvUrl && kvToken) {
         try {
-            const redisKey = `cvbuilder:rl:${key}`;
+            const redisKey = `cvbuilder:rl:${bucketKey}`;
             const res = await fetch(`${kvUrl.replace(/\/$/, '')}/pipeline`, {
                 method: 'POST',
                 signal: AbortSignal.timeout(1500),
@@ -80,24 +119,15 @@ async function isRateLimitedAsync(key) {
         }
     }
 
-    return isRateLimited(key);
+    return isRateLimited(bucketKey);
 }
 
 // ════════════════════════════════════════════════════════════════
-// CORS CONFIGURATION
+// [CVB-SEC-003] CORS CONFIGURATION (Strict Whitelist)
 // ════════════════════════════════════════════════════════════════
-const allowedOriginPatterns = [
-    /^http:\/\/localhost(:\d+)?$/,
-    /^http:\/\/127\.0\.0\.1(:\d+)?$/,
-    /^https:\/\/.*\.web\.app$/,
-    /^https:\/\/.*\.firebaseapp\.com$/
-];
-
 const cors = require('cors')({
     origin: (origin, callback) => {
-        if (!origin) return callback(null, true);
-        const isAllowed = allowedOriginPatterns.some(pattern => pattern.test(origin));
-        if (isAllowed) {
+        if (isAllowedOrigin(origin)) {
             return callback(null, true);
         }
         return callback(new Error('Blocat de politica de securitate CORS. Originea nu este autorizată.'));
@@ -105,168 +135,93 @@ const cors = require('cors')({
 });
 
 // ════════════════════════════════════════════════════════════════
-// SANITIZARE & DEFENSIVE CODING ANTI-XSS & ANTI-SSRF
+// 0. HEALTHCHECK ENDPOINT (/healthz & /readyz)
 // ════════════════════════════════════════════════════════════════
-function escapeHtml(str) {
-    if (typeof str !== 'string') return '';
-    return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
+const onRequest = functions.https.onRequest;
 
-function isPrivateOrInternalUrl(urlStr) {
-    try {
-        const parsed = new URL(urlStr);
-        const host = (parsed.hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
-        if (!host) return true;
-        if (
-            host === 'localhost' ||
-            host === '0.0.0.0' ||
-            host === '::1' ||
-            host === '0:0:0:0:0:0:0:1' ||
-            host.endsWith('.internal') ||
-            host.endsWith('.local') ||
-            host.includes('metadata.google')
-        ) {
-            return true;
-        }
-        // Blocare IPv6 link-local & unique-local
-        if (/^(fe80:|fc00:|fd00:)/i.test(host)) {
-            return true;
-        }
-        // Blocare IPv4 private / loopback / link-local (RFC 1918 + 169.254.0.0/16 + 127.0.0.0/8)
-        const ipv4Match = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-        if (ipv4Match) {
-            const [, a, b] = ipv4Match.map(Number);
-            if (
-                a === 10 ||
-                a === 127 ||
-                a === 0 ||
-                (a === 169 && b === 254) ||
-                (a === 192 && b === 168) ||
-                (a === 172 && b >= 16 && b <= 31) ||
-                (a === 100 && b >= 64 && b <= 127)
-            ) {
-                return true;
-            }
-        }
-        return false;
-    } catch (_) {
-        return true;
-    }
-}
-
-function hasValidMagicBytes(buffer, type) {
-    if (!Buffer.isBuffer(buffer) || buffer.length < 4) return false;
-    if (type === 'jpeg' || type === 'jpg') {
-        return buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF;
-    }
-    if (type === 'png') {
-        return (
-            buffer.length >= 8 &&
-            buffer[0] === 0x89 &&
-            buffer[1] === 0x50 &&
-            buffer[2] === 0x4E &&
-            buffer[3] === 0x47
-        );
-    }
-    if (type === 'webp') {
-        return (
-            buffer.length >= 12 &&
-            buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
-            buffer.subarray(8, 12).toString('ascii') === 'WEBP'
-        );
-    }
-    if (type === 'pdf') {
-        return buffer.length >= 5 && buffer.subarray(0, 5).toString('ascii') === '%PDF-';
-    }
-    if (type === 'docx') {
-        return buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04;
-    }
-    return false;
-}
-
-function sanitizePhotoUrl(url) {
-    if (typeof url !== 'string' || !url) return '';
-    const trimmed = url.trim();
-
-    // Permite data:image base64 doar după validarea semnăturii binare Magic Bytes
-    const dataMatch = trimmed.match(/^data:image\/(png|jpeg|jpg|webp);base64,([A-Za-z0-9+/=]+)$/);
-    if (dataMatch) {
-        const imgType = dataMatch[1];
-        const b64Sample = dataMatch[2].slice(0, 32);
-        const buf = Buffer.from(b64Sample, 'base64');
-        return hasValidMagicBytes(buf, imgType) ? trimmed : '';
-    }
-
-    // Permite doar URL-uri HTTPS externe legitime, blocând IP-urile private/interne (Anti-SSRF)
-    if (/^https:\/\/[^\s$.?#].[^\s]*$/i.test(trimmed)) {
-        if (isPrivateOrInternalUrl(trimmed)) {
-            return '';
-        }
-        return trimmed;
-    }
-
-    return '';
-}
+exports.healthz = onRequest(handleHealthz);
 
 // ════════════════════════════════════════════════════════════════
-// 1. STRIPE WEBHOOK (Activare cont PRO & Credite în timp real)
+// 1. STRIPE WEBHOOK (Activare cont PRO, Revocare & Credite cu Ledger)
 // ════════════════════════════════════════════════════════════════
-exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
+exports.stripeWebhook = onRequest(async (req, res) => {
+    const correlationId = getCorrelationId(req, 'strp');
+    if (typeof res.setHeader === 'function') {
+        res.setHeader('X-Correlation-ID', correlationId);
+    }
+
     const sig = req.headers['stripe-signature'];
     const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
     if (!endpointSecret) {
-        functions.logger.error("Missing STRIPE_WEBHOOK_SECRET in runtime environment", { correlation_id: sig ? sig.slice(0, 10) : "none" });
-        return res.status(500).send("Webhook secret neconfigurat.");
+        logStructured('error', 'Missing STRIPE_WEBHOOK_SECRET in runtime environment', correlationId);
+        return sendProblem(res, 500, 'Webhook Configuration Error', 'Webhook secret neconfigurat.', '/stripeWebhook', correlationId);
     }
 
     let event;
     try {
         event = stripe.webhooks.constructEvent(req.rawBody, sig, endpointSecret);
     } catch (err) {
-        functions.logger.error("Webhook signature verification failed", { error: err.message });
-        return res.status(400).send(`Webhook Error: ${err.message}`);
+        const errMsg = err instanceof Error ? err.message : 'Invalid signature';
+        logStructured('error', 'Webhook signature verification failed', correlationId, { errorName: 'SignatureVerificationError' });
+        return sendProblem(res, 400, 'Webhook Signature Error', `Webhook Error: ${errMsg}`, '/stripeWebhook', correlationId);
     }
+
+    const eventId = event.id;
+    const supportedEvents = new Set([
+        'checkout.session.completed',
+        'customer.subscription.deleted',
+        'invoice.payment_failed'
+    ]);
+
+    if (!supportedEvents.has(event.type)) {
+        return res.json({ received: true });
+    }
+
+    // [CVB-SEC-002] La checkout.session.completed, verificăm ca plata să fie efectiv confirmată ('paid')
+    if (event.type === 'checkout.session.completed') {
+        const sessionObj = event.data.object || {};
+        if (sessionObj.payment_status !== 'paid') {
+            logStructured('warn', 'Stripe checkout session not paid yet, skipping activation', correlationId, {
+                eventId,
+                paymentStatus: sessionObj.payment_status
+            });
+            return res.json({ received: true, skipped_unpaid: true });
+        }
+    }
+
+    // BARIERĂ DETERMINISTĂ DE IDEMPOTENȚĂ (Elimină Double-Spend la retry de rețea)
+    const processedEventRef = db.collection('processed_stripe_events').doc(eventId);
+    try {
+        const alreadyProcessed = await db.runTransaction(async (transaction) => {
+            const eventDoc = await transaction.get(processedEventRef);
+            if (eventDoc.exists) {
+                return true;
+            }
+            transaction.set(processedEventRef, {
+                eventId,
+                processedAt: admin.firestore.FieldValue.serverTimestamp(),
+                type: event.type,
+                correlationId
+            });
+            return false;
+        });
+
+        if (alreadyProcessed) {
+            logStructured('info', 'Stripe event already processed, skipping mutation', correlationId, { eventId });
+            return res.json({ received: true, already_processed: true });
+        }
+    } catch (_) {
+        logStructured('error', 'Error checking webhook idempotency', correlationId, { eventId });
+        return sendProblem(res, 500, 'Idempotency Check Failed', 'Eroare verificare idempotență.', '/stripeWebhook', correlationId);
+    }
+
+    const usersRef = db.collection('users');
 
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
         const customerEmail = session.customer_details ? session.customer_details.email : null;
         const firebaseUid = session.client_reference_id;
-        const eventId = event.id;
-
-        // BARIERĂ DETERMINISTĂ DE IDEMPOTENȚĂ (Elimină Double-Spend la retry de rețea)
-        const processedEventRef = db.collection('processed_stripe_events').doc(eventId);
-        try {
-            const alreadyProcessed = await db.runTransaction(async (transaction) => {
-                const eventDoc = await transaction.get(processedEventRef);
-                if (eventDoc.exists) {
-                    return true;
-                }
-                transaction.set(processedEventRef, {
-                    eventId,
-                    processedAt: admin.firestore.FieldValue.serverTimestamp(),
-                    type: event.type,
-                    customerId: session.customer || null,
-                    clientReferenceId: firebaseUid || null
-                });
-                return false;
-            });
-
-            if (alreadyProcessed) {
-                functions.logger.info("Stripe event already processed, skipping mutation", { eventId });
-                return res.json({ received: true, already_processed: true });
-            }
-        } catch (trxErr) {
-            functions.logger.error("Error checking webhook idempotency", { error: trxErr.message, eventId });
-            return res.status(500).send("Eroare verificare idempotență.");
-        }
-
-        const usersRef = db.collection('users');
         const isSubscription = session.mode === 'subscription';
 
         const subscriptionData = {
@@ -282,56 +237,140 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
             subscriptionData.exportCredits = admin.firestore.FieldValue.increment(1);
         }
 
+        const recordPurchaseForUser = (batch, userId) => {
+            batch.set(usersRef.doc(userId), subscriptionData, { merge: true });
+            if (!isSubscription) {
+                const ledgerRef = db.collection('credit_ledger').doc();
+                batch.set(ledgerRef, {
+                    userId,
+                    uid: userId,
+                    delta: +1,
+                    reason: 'CREDIT_PURCHASE',
+                    stripeEventId: eventId,
+                    timestamp: admin.firestore.FieldValue.serverTimestamp()
+                });
+            }
+            const auditRef = db.collection('audit_logs').doc();
+            batch.set(auditRef, {
+                action: isSubscription ? 'SUBSCRIPTION_ACTIVATED' : 'CREDIT_PURCHASE',
+                userId,
+                stripeCustomerId: session.customer || null,
+                stripeEventId: eventId,
+                correlationId,
+                timestamp: admin.firestore.FieldValue.serverTimestamp()
+            });
+        };
+
         try {
             if (firebaseUid) {
-                await usersRef.doc(firebaseUid).set(subscriptionData, { merge: true });
+                const batch = db.batch();
+                recordPurchaseForUser(batch, firebaseUid);
+                await batch.commit();
             } else if (customerEmail) {
                 const snapshot = await usersRef.where('email', '==', customerEmail).get();
                 if (!snapshot.empty) {
                     const batch = db.batch();
                     snapshot.forEach((doc) => {
-                        batch.set(usersRef.doc(doc.id), subscriptionData, { merge: true });
+                        recordPurchaseForUser(batch, doc.id);
                     });
                     await batch.commit();
                 }
             }
-        } catch (dbErr) {
-            functions.logger.error("Subscription status database update failed", { error: dbErr.message });
-            return res.status(500).send("Eroare actualizare bază de date.");
+        } catch (_) {
+            logStructured('error', 'Subscription status database update failed', correlationId, { eventId });
+            return sendProblem(res, 500, 'Database Update Failed', 'Eroare actualizare bază de date.', '/stripeWebhook', correlationId);
+        }
+    } else if (event.type === 'customer.subscription.deleted' || event.type === 'invoice.payment_failed') {
+        const eventObj = event.data.object || {};
+        const stripeCustomerId = eventObj.customer || null;
+
+        if (stripeCustomerId) {
+            try {
+                const snapshot = await usersRef.where('stripeCustomerId', '==', stripeCustomerId).get();
+                if (!snapshot.empty) {
+                    const batch = db.batch();
+                    snapshot.forEach((doc) => {
+                        batch.set(
+                            usersRef.doc(doc.id),
+                            {
+                                isPro: false,
+                                subRevokedAt: admin.firestore.FieldValue.serverTimestamp()
+                            },
+                            { merge: true }
+                        );
+                        const auditRef = db.collection('audit_logs').doc();
+                        batch.set(auditRef, {
+                            action: 'SUBSCRIPTION_REVOKED',
+                            userId: doc.id,
+                            stripeCustomerId,
+                            eventType: event.type,
+                            stripeEventId: eventId,
+                            correlationId,
+                            timestamp: admin.firestore.FieldValue.serverTimestamp()
+                        });
+                    });
+                    await batch.commit();
+                    logStructured('info', 'Subscription revoked via Stripe webhook', correlationId, {
+                        eventId,
+                        eventType: event.type
+                    });
+                }
+            } catch (_) {
+                logStructured('error', 'Failed to revoke subscription in Firestore', correlationId, { eventId });
+                return sendProblem(res, 500, 'Subscription Revocation Failed', 'Eroare la revocarea abonamentului.', '/stripeWebhook', correlationId);
+            }
         }
     }
 
-    res.json({ received: true });
+    return res.json({ received: true });
 });
 
 // ════════════════════════════════════════════════════════════════
 // 2. GENERARE PDF ULTRA-SECURIZATĂ (Puppeteer Chromium Hardening)
 // ════════════════════════════════════════════════════════════════
 exports.generatePDF = functions.runWith({ memory: '2GB', timeoutSeconds: 60 }).https.onRequest((req, res) => {
+    const correlationId = getCorrelationId(req, 'pdf');
+    if (typeof res.setHeader === 'function') {
+        res.setHeader('X-Correlation-ID', correlationId);
+    }
+
+    const origin = req.headers ? req.headers['origin'] : '';
+    if (origin && !isAllowedOrigin(origin)) {
+        logStructured('warn', 'Blocked unauthorized CORS origin on generatePDF', correlationId, { origin });
+        return sendProblem(res, 403, 'Forbidden Origin', 'Blocat de politica de securitate CORS. Originea nu este autorizată.', '/generatePDF', correlationId);
+    }
+
     cors(req, res, async () => {
         if (req.method !== 'POST') {
-            return res.status(405).send('Method Not Allowed');
+            return sendProblem(res, 405, 'Method Not Allowed', 'Method Not Allowed', '/generatePDF', correlationId);
         }
 
         // Rate limiting distribuit hibrid pe IP
-        const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
+        const forwardedFor = req.headers && typeof req.headers['x-forwarded-for'] === 'string'
+            ? req.headers['x-forwarded-for'].split(',')[0].trim()
+            : '';
+        const clientIp = forwardedFor || req.ip || 'unknown';
         if (await isRateLimitedAsync(clientIp)) {
-            return res.status(429).send('Prea multe solicitări de export PDF. Te rugăm să aștepți 2 minute.');
+            logStructured('warn', 'Rate limit exceeded on generatePDF', correlationId);
+            return sendProblem(res, 429, 'Too Many Requests', 'Prea multe solicitări de export PDF. Te rugăm să aștepți 2 minute.', '/generatePDF', correlationId);
         }
 
         // Guard dimensiune payload (Denial-of-Wallet guard: max 512 KB)
         const rawBodyLen = req.rawBody ? req.rawBody.length : JSON.stringify(req.body || {}).length;
         if (rawBodyLen > MAX_PAYLOAD_BYTES) {
-            return res.status(413).send('Payload-ul CV-ului depășește limita maximă admisă (512 KB).');
+            logStructured('warn', 'Payload too large on generatePDF', correlationId, { rawBodyLen });
+            return sendProblem(res, 413, 'Payload Too Large', 'Payload-ul CV-ului depășește limita maximă admisă (512 KB).', '/generatePDF', correlationId);
         }
 
-        const { cvData, token } = req.body;
+        const { cvData, token } = req.body || {};
 
         if (!cvData || typeof cvData !== 'object') {
-            return res.status(400).send('Lipsește obiectul de date cvData.');
+            return sendProblem(res, 400, 'Validation Error', 'Lipsește obiectul de date cvData.', '/generatePDF', correlationId);
         }
 
         let browser = null;
+        let deductedCredit = false;
+        let deductedUid = null;
 
         try {
             // Verificare criptografică statut PRO & tranzacție atomică pe credite cu Ledger append-only
@@ -359,21 +398,34 @@ exports.generatePDF = functions.runWith({ memory: '2GB', timeoutSeconds: 60 }).h
                                 throw new Error('Invariant violation: negative credit balance');
                             }
                             isPro = true;
+                            deductedCredit = true;
+                            deductedUid = uid;
                             transaction.update(userRef, {
                                 exportCredits: newBalance
                             });
                             const ledgerRef = db.collection('credit_ledger').doc();
                             transaction.set(ledgerRef, {
+                                userId: uid,
                                 uid,
+                                reason: 'DEBIT_EXPORT',
                                 type: 'DEBIT_EXPORT',
                                 delta: -1,
                                 balanceAfter: newBalance,
+                                correlationId,
                                 createdAt: admin.firestore.FieldValue.serverTimestamp()
+                            });
+                            const auditRef = db.collection('audit_logs').doc();
+                            transaction.set(auditRef, {
+                                action: 'PDF_CREDIT_CONSUMED',
+                                userId: uid,
+                                balanceAfter: newBalance,
+                                correlationId,
+                                timestamp: admin.firestore.FieldValue.serverTimestamp()
                             });
                         }
                     });
-                } catch (authErr) {
-                    functions.logger.warn("Invalid or expired token", { error: authErr.message });
+                } catch (_) {
+                    logStructured('warn', 'Invalid or expired Firebase ID token on generatePDF', correlationId);
                 }
             }
 
@@ -444,7 +496,6 @@ exports.generatePDF = functions.runWith({ memory: '2GB', timeoutSeconds: 60 }).h
                 <html lang="ro">
                 <head>
                     <meta charset="UTF-8">
-                    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
                     <style>
                         ${CV_BASE_STYLES}
                         :root {
@@ -501,27 +552,14 @@ exports.generatePDF = functions.runWith({ memory: '2GB', timeoutSeconds: 60 }).h
             // 1. Dezactivare completă interpretare JS (Elimină Server-Side XSS la zero)
             await page.setJavaScriptEnabled(false);
 
-            // 2. Interceptare cereri: blocare protocoale interne, rețele locale RFC 1918 & Google Cloud Metadata (Anti-SSRF)
+            // 2. [CVB-SEC-001] Interceptare strictă: se permit EXCLUSIV 'about:blank' și 'data:image/' (Zero conexiuni de rețea externă/internă, 0% SSRF)
             await page.setRequestInterception(true);
             page.on('request', (interceptedReq) => {
                 const reqUrl = (interceptedReq.url() || '').toLowerCase();
-                if (
-                    reqUrl.startsWith('file:') ||
-                    reqUrl.startsWith('gopher:') ||
-                    reqUrl.startsWith('ftp:') ||
-                    reqUrl.startsWith('ws:') ||
-                    reqUrl.startsWith('wss:') ||
-                    (!reqUrl.startsWith('data:image/') && isPrivateOrInternalUrl(reqUrl))
-                ) {
-                    return interceptedReq.abort();
+                if (reqUrl.startsWith('data:image/') || reqUrl.startsWith('about:')) {
+                    return interceptedReq.continue();
                 }
-
-                const resourceType = interceptedReq.resourceType();
-                if (['document', 'font', 'stylesheet', 'image'].includes(resourceType)) {
-                    interceptedReq.continue();
-                } else {
-                    interceptedReq.abort();
-                }
+                return interceptedReq.abort();
             });
 
             await page.setContent(docHTML, { waitUntil: 'load', timeout: 20000 });
@@ -533,22 +571,69 @@ exports.generatePDF = functions.runWith({ memory: '2GB', timeoutSeconds: 60 }).h
             });
 
             res.setHeader('Content-Type', 'application/pdf');
-            const safeFileName = (cvData.name || 'Export').replace(/[^a-zA-Z0-9_\-]/g, '_');
+            const safeFileName = (cvData.name || 'Export').replace(/[^a-zA-Z0-9_-]/g, '_');
             res.setHeader('Content-Disposition', `attachment; filename="CV_${safeFileName}.pdf"`);
             return res.send(pdfBuffer);
 
         } catch (error) {
-            functions.logger.error("Server error generating PDF", { error: error.message, stack: error.stack });
-            return res.status(500).send("A apărut o eroare la generarea PDF-ului.");
+            // [CVB-SEC-002] Tranzacție compensatorie: dacă s-a dedus 1 credit și randarea Chromium a eșuat, returnăm creditul utilizatorului
+            if (deductedCredit && deductedUid) {
+                try {
+                    const userRef = db.collection('users').doc(deductedUid);
+                    await db.runTransaction(async (transaction) => {
+                        const userDoc = await transaction.get(userRef);
+                        const currentCredits = userDoc.exists ? Number(userDoc.data()?.exportCredits || 0) : 0;
+                        const refundedBalance = currentCredits + 1;
+                        transaction.set(userRef, { exportCredits: refundedBalance }, { merge: true });
+
+                        const ledgerRef = db.collection('credit_ledger').doc();
+                        transaction.set(ledgerRef, {
+                            userId: deductedUid,
+                            uid: deductedUid,
+                            delta: +1,
+                            reason: 'CREDIT_REFUND_RENDER_ERROR',
+                            type: 'CREDIT_REFUND_RENDER_ERROR',
+                            balanceAfter: refundedBalance,
+                            correlationId,
+                            createdAt: admin.firestore.FieldValue.serverTimestamp()
+                        });
+
+                        const auditRef = db.collection('audit_logs').doc();
+                        transaction.set(auditRef, {
+                            action: 'CREDIT_REFUND_RENDER_ERROR',
+                            userId: deductedUid,
+                            balanceAfter: refundedBalance,
+                            correlationId,
+                            timestamp: admin.firestore.FieldValue.serverTimestamp()
+                        });
+                    });
+                    logStructured('info', 'Refunded 1 export credit after Puppeteer failure', correlationId, { userId: deductedUid });
+                } catch (_) {
+                    logStructured('error', 'Failed to refund export credit after render failure', correlationId, { userId: deductedUid });
+                }
+            }
+
+            logStructured('error', 'Server error generating PDF', correlationId, {
+                errorName: error instanceof Error ? error.name : 'RenderError'
+            });
+            return sendProblem(res, 500, 'PDF Generation Failed', 'A apărut o eroare la generarea PDF-ului.', '/generatePDF', correlationId);
         } finally {
             // Garantare distrugere instanță Chromium pentru a elimina procesele zombie & memory leak-urile
             if (browser) {
                 try {
                     await browser.close();
-                } catch (closeErr) {
-                    functions.logger.error("Error closing browser instance", { error: closeErr.message });
+                } catch (_) {
+                    logStructured('error', 'Error closing browser instance', correlationId);
                 }
             }
         }
     });
 });
+
+exports.__test__ = {
+    sanitizePhotoUrl,
+    isPrivateOrInternalUrl,
+    isAllowedOrigin,
+    ALLOWED_ORIGINS,
+    sendProblem
+};

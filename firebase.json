@@ -27,6 +27,14 @@
     ],
     "rewrites": [
       {
+        "source": "/healthz",
+        "function": "healthz"
+      },
+      {
+        "source": "/readyz",
+        "function": "healthz"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

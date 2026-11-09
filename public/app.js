@@ -1,3 +1,4 @@
+// @ts-check
 (function () {
             'use strict';
 
@@ -513,7 +514,7 @@
                         })
                         .catch((err) => {
                             console.warn('Firestore read error:', err);
-                            self.isPro = localStorage.getItem('cvpro_pro') === '1';
+                            self.isPro = false;
                             if (cb) cb();
                         });
                 },
@@ -617,11 +618,19 @@
                 },
 
                 checkProStatus:function(){
-                    // Fallback simplu pentru compatibilitate — logica reală e în initFirebaseAuth
-                    if (!firebaseReady) {
-                        this.isPro = localStorage.getItem('cvpro_pro') === '1';
+                    // [CVB-SEC-003] Starea PRO este validata exclusiv prin Firebase Auth + Firestore
+                    if (!firebaseReady || !this.currentUser) {
+                        this.isPro = false;
                         this.updateProUI();
                     }
+                },
+
+                checkUserLimits:function(_uid){
+                    var self = this;
+                    this.checkProStatusCloud(function() {
+                        self.updateProUI();
+                        self.updateAuthUI();
+                    });
                 },
 
                 updateProUI:function(){
@@ -649,13 +658,12 @@
                 checkStripeReturn:function(){
                     var params=new URLSearchParams(window.location.search);
                     if(params.has('session_id')){
-                        // Stripe a redirecționat înapoi după plată
-                        // Cloud Function-ul a setat deja statusul în Firestore
-                        // Citim statusul actualizat
+                        // [CVB-SEC-003] Nu setam niciodata isPro = true direct din query string pe client!
+                        // Curatam URL-ul si sincronizam starea validata de server din Firestore.
                         var self = this;
-                        history.replaceState({},'',window.location.pathname);
+                        window.history.replaceState({},'',window.location.pathname);
+                        self.toast(t('toastPaid'),'info');
                         if (firebaseReady && self.currentUser) {
-                            // Mic delay pentru a lăsa Cloud Function să scrie în Firestore
                             setTimeout(function() {
                                 self.checkProStatusCloud(function() {
                                     self.updateProUI();
@@ -663,7 +671,6 @@
                                     if (self.isPro) {
                                         self.toast(t('toastProActivated'), 'success');
                                     } else {
-                                        // Încearcă din nou după 3 secunde (webhook poate întârzia)
                                         setTimeout(function() {
                                             self.checkProStatusCloud(function() {
                                                 self.updateProUI();
@@ -674,12 +681,6 @@
                                     }
                                 });
                             }, 1500);
-                        } else if (!firebaseReady) {
-                            // Fallback fără Firebase
-                            localStorage.setItem('cvpro_pro','1');
-                            this.isPro = true;
-                            this.updateProUI();
-                            this.toast(t('toastPaid'),'success');
                         }
                     }
                 },

@@ -4,6 +4,7 @@
   "description": "CV Builder PRO & ATS Analyzer - Vanilla SPA & Firebase Cloud Functions",
   "private": true,
   "scripts": {
-    "gatekeeper": "node -c public/app.js functions/index.js functions/cv-styles.js"
+    "test": "node --test tests/*.test.js",
+    "gatekeeper": "node -c public/app.js && node -c functions/security-core.js && node -c functions/index.js && node -c functions/cv-styles.js && npm test"
   }
 }
