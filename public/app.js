@@ -24,7 +24,7 @@
             // Pasul 2: Creează Product: "CV Builder PRO" — 5 EUR/lună (Recurring)
             // Pasul 3: Creează Payment Link pentru acel produs
             // Pasul 4: La "After payment" setează redirect:
-            //    https://DOMENIULTAU.ro/?session_id={CHECKOUT_SESSION_ID}
+            //    https://cvsmartats.web.app/?session_id={CHECKOUT_SESSION_ID}
             // Pasul 5: Înlocuiește URL-urile de mai jos:
             var STRIPE_URL_MONTHLY = 'https://buy.stripe.com/7sY4gCc6e7kmgaDd3t3oA00';
             var STRIPE_URL_ONETIME = 'https://buy.stripe.com/cNidRc3zI346cYrbZp3oA02';
@@ -32,7 +32,7 @@
             // Activează în Stripe Dashboard > Customer Portal
             var STRIPE_BILLING_PORTAL = 'https://billing.stripe.com/p/login/7sY4gCc6e7kmgaDd3t3oA00';
             // Pasul 6: Înlocuiește URL-ul Cloud Function-ului tău (vezi rezultatul comenzii firebase deploy)
-            var CLOUD_FUNCTION_URL = 'https://eur3-cvsmartats.cloudfunctions.net/generatePDF';
+            var CLOUD_FUNCTION_URL = '/api/generate-pdf';
             // ══════════════════════════════════════════════════
 
             // ══════════════════════════════════════════════════
@@ -85,9 +85,17 @@
                     jdTitle: 'Analiză Comparativă cu Fișa Postului', jdScore: 'Rată potrivire:',
                     jdMissing: 'Cuvinte cheie absente din CV-ul tău:',
                     toastSaved: 'Salvat în browser',
-                    watermark: 'Creat cu CV Builder Pro | domeniultau.ro',
+                    watermark: 'Creat cu CV Builder Pro | cvsmartats.web.app',
                     modalResetTitle: 'Resetare date', modalResetCancel: 'Anulează', modalResetConfirm: 'Da, șterge tot',
                     modalProTitle: 'Deblochează Export PRO', modalProCancel: 'Export gratuit (cu watermark)', modalProBuy: 'Cumpără PRO 5€/lună',
+                    modalOneTimeBuy: 'Cumpără (3 EUR)',
+                    skipToPreview: 'Sari la previzualizarea CV-ului',
+                    gdprPrivacyBtn: 'Confidențialitate GDPR',
+                    privacyModalTitle: '🛡️ Confidențialitate & Drepturi GDPR',
+                    privacyBody1: 'Datele introduse în CV sunt stocate local în browserul tău (localStorage) și trimise temporar către server strict în momentul în care apeși Export PDF (fără arhivare permanentă a PDF-ului).',
+                    privacyBody2: 'La autentificarea opțională cu Google, prelucrăm Nume, Email și UID în Firebase exclusiv pentru gestionarea contului și facturării Stripe. Poți exporta oricând JSON sau șterge toate datele locale imediat.',
+                    gdprEraseLocalBtn: 'Șterge datele locale',
+                    toastLocalErased: 'Toate datele locale au fost șterse din browser.',
                     toastLoginRequired: 'Autentifică-te pentru a accesa PRO pe orice dispozitiv! 🔐',
                     toastLoggedIn: 'Autentificat cu succes! ✅',
                     toastLoggedOut: 'Delogat cu succes.',
@@ -114,6 +122,7 @@
                     subTrialing: 'Perioadă de probă activă.',
                     toastFirebaseNotSet: 'Firebase nu este configurat încă.',
                     toastPortalNotSet: 'Stripe Customer Portal nu este configurat încă.',
+                    planOnetimeLabel: 'Plată Unică', planOnetimeDesc: '1 Export fără watermark',
                     planExportLabel: '/ export', planExportDesc: 'Un singur CV, fără abonament',
                     planBadge: 'CEL MAI POPULAR', planMonthlyLabel: '/ lună', planMonthlyDesc: 'Exporturi nelimitate',
                     proFeat1: 'PDF fără watermark', proFeat2: 'Export JSON nelimitat',
@@ -155,7 +164,7 @@
                     toastImportOk: 'Datele au fost importate cu succes!',
                     toastImportErr: 'Fișierul JSON importat este corupt sau invalid.',
                     toastCopied: 'CV copiat în clipboard ca text simplu! ✅',
-                    toastPaid: 'Plata confirmată! Modul PRO a fost activat permanent pe acest browser. ✅',
+                    toastPaid: 'Plata a fost înregistrată! Verificăm și sincronizăm statutul contului...',
                     toastStripeNotSet: 'URL-ul Stripe nu a fost setat încă în codul sursă!',
                     toastProfilCreat: ' a fost creat!', toastProfilRedenumit: 'Profil redenumit cu succes!',
                     toastProfilSters: 'Profilul selectat a fost șters.',
@@ -211,9 +220,17 @@
                     jdTitle: 'Comparative Analysis with Job Description', jdScore: 'Match rate:',
                     jdMissing: 'Keywords missing from your CV:',
                     toastSaved: 'Saved in browser',
-                    watermark: 'Generat cu CV Builder PRO',
+                    watermark: 'Created with CV Builder Pro | cvsmartats.web.app',
                     modalResetTitle: 'Reset Data', modalResetCancel: 'Cancel', modalResetConfirm: 'Yes, delete all',
                     modalProTitle: 'Unlock PRO Export', modalProCancel: 'Free export (with watermark)', modalProBuy: 'Get PRO €5/mo',
+                    modalOneTimeBuy: 'Buy (3 EUR)',
+                    skipToPreview: 'Skip to CV preview',
+                    gdprPrivacyBtn: 'GDPR Privacy',
+                    privacyModalTitle: '🛡️ Privacy & GDPR Rights',
+                    privacyBody1: 'Your CV data is stored locally in your browser (localStorage) and sent temporarily to our PDF server only when you click Export PDF (no permanent PDF storage).',
+                    privacyBody2: 'If you optionally sign in with Google, we process Name, Email and UID in Firebase strictly for account and Stripe billing management. You can export JSON or erase all local data anytime.',
+                    gdprEraseLocalBtn: 'Erase local data',
+                    toastLocalErased: 'All local CV data has been erased from this browser.',
                     toastLoginRequired: 'Sign in to access PRO on any device! 🔐',
                     toastLoggedIn: 'Signed in successfully! ✅',
                     toastLoggedOut: 'Signed out.',
@@ -240,6 +257,7 @@
                     subTrialing: 'Active trial period.',
                     toastFirebaseNotSet: 'Firebase is not configured yet.',
                     toastPortalNotSet: 'Stripe Customer Portal is not configured yet.',
+                    planOnetimeLabel: 'One-Time Payment', planOnetimeDesc: '1 Watermark-free export',
                     planExportLabel: '/ export', planExportDesc: 'Single CV, no subscription',
                     planBadge: 'MOST POPULAR', planMonthlyLabel: '/ month', planMonthlyDesc: 'Unlimited exports',
                     proFeat1: 'PDF without watermark', proFeat2: 'Unlimited JSON export',
@@ -281,7 +299,7 @@
                     toastImportOk: 'Data imported successfully!',
                     toastImportErr: 'The JSON file is corrupted or invalid.',
                     toastCopied: 'CV copied to clipboard as plain text! ✅',
-                    toastPaid: 'Payment confirmed! PRO mode permanently activated on this browser. ✅',
+                    toastPaid: 'Payment recorded! Verifying and syncing your account status...',
                     toastStripeNotSet: 'Stripe URL has not been set in the source code yet!',
                     toastProfilCreat: ' has been created!', toastProfilRedenumit: 'Profile renamed successfully!',
                     toastProfilSters: 'Selected profile deleted.',
@@ -382,7 +400,46 @@
 
             function def(){return{color:'#3b82f6',photo:'',name:'',title:'',email:'',phone:'',location:'',linkedin:'',github:'',portfolio:'',summary:'',links:[],experiences:[],projects:[],educations:[],certifications:[],languages:[],skills:[],font:"'Inter', sans-serif",padding:20,size:14,lh:1.6,gap:24,order:['summary','experience','projects','education','certifications','languages','skills'],hidden:[],jd:''};}
 
-            function norm(d){var b=def();if(!d||typeof d!=='object'||Array.isArray(d))return b;var s=Object.assign({},b,d);['links','experiences','projects','educations','certifications','languages','skills','order','hidden'].forEach(function(k){if(!Array.isArray(s[k]))s[k]=b[k];});s.order=s.order.filter(function(k){return b.order.includes(k);});b.order.forEach(function(k){if(!s.order.includes(k))s.order.push(k);});s.projects=s.projects.map(function(p){return Object.assign({url:''},p);});s.experiences=s.experiences.map(function(e){return Object.assign({desc:''},e);});return s;}
+            function norm(d){
+                var b = def();
+                if (!d || typeof d !== 'object' || Array.isArray(d)) return b;
+                var allowedFonts = ["'Inter', sans-serif", "'Roboto', sans-serif", "'Lora', serif", 'Georgia, serif'];
+                var s = def();
+                ['name','title','email','phone','location','linkedin','github','portfolio','summary','jd'].forEach(function(k){
+                    if (typeof d[k] === 'string') s[k] = d[k].slice(0, 8000);
+                });
+                if (typeof d.color === 'string' && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(d.color.trim())) s.color = d.color.trim();
+                if (typeof d.font === 'string' && allowedFonts.includes(d.font.trim())) s.font = d.font.trim();
+                var clamp = function(v, min, max, fb){ var n = Number(v); return Number.isFinite(n) && n >= min && n <= max ? n : fb; };
+                s.padding = clamp(d.padding, 5, 40, b.padding);
+                s.size = clamp(d.size, 11, 18, b.size);
+                s.lh = clamp(d.lh, 1.2, 2.2, b.lh);
+                s.gap = clamp(d.gap, 10, 40, b.gap);
+                if (typeof d.photo === 'string' && /^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+$/i.test(d.photo.trim()) && d.photo.length <= 2621440) {
+                    s.photo = d.photo.trim();
+                }
+                ['links','experiences','projects','educations','certifications','languages','skills','order','hidden'].forEach(function(k){
+                    s[k] = Array.isArray(d[k]) ? d[k] : b[k];
+                });
+                s.order = s.order.filter(function(k){ return typeof k === 'string' && b.order.includes(k); });
+                b.order.forEach(function(k){ if (!s.order.includes(k)) s.order.push(k); });
+                s.hidden = s.hidden.filter(function(k){ return typeof k === 'string' && b.order.includes(k); });
+                var mapPlainList = function(arr, fields, defaults){
+                    return arr.slice(0, 40).filter(function(x){ return x && typeof x === 'object' && !Array.isArray(x); }).map(function(x){
+                        var out = Object.assign({}, defaults || {});
+                        fields.forEach(function(f){ if (typeof x[f] === 'string') out[f] = x[f].slice(0, 4000); else if (out[f] === undefined) out[f] = ''; });
+                        return out;
+                    });
+                };
+                s.links = mapPlainList(s.links, ['label','url'], {label:'', url:''});
+                s.experiences = mapPlainList(s.experiences, ['company','role','period','desc'], {company:'', role:'', period:'', desc:''});
+                s.projects = mapPlainList(s.projects, ['name','tech','url','period','desc'], {name:'', tech:'', url:'', period:'', desc:''});
+                s.educations = mapPlainList(s.educations, ['institution','degree','period'], {institution:'', degree:'', period:''});
+                s.certifications = mapPlainList(s.certifications, ['name','issuer','period'], {name:'', issuer:'', period:''});
+                s.languages = mapPlainList(s.languages, ['name','level'], {name:'', level:''});
+                s.skills = s.skills.slice(0, 60).filter(function(sk){ return typeof sk === 'string' && sk.trim(); }).map(function(sk){ return sk.trim().slice(0, 80); });
+                return s;
+            }
 
             var $=function(id){return document.getElementById(id);};
             function el(t,c,tx){var e=document.createElement(t);if(c)e.className=c;if(tx)e.textContent=tx;return e;}
@@ -394,6 +451,10 @@
                     elem.textContent = str;
                     return;
                 }
+                if (typeof DOMPurify === 'undefined') {
+                    elem.textContent = str.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+                    return;
+                }
                 var cleanFragment = DOMPurify.sanitize(str, {
                     ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'p', 'ul', 'li', 'span', 'code'],
                     ALLOWED_ATTR: ['class'],
@@ -401,11 +462,37 @@
                 });
                 elem.appendChild(cleanFragment);
             }
-            function esc(s){return s ? DOMPurify.sanitize(s + '', { ALLOWED_TAGS: [], ALLOWED_ATTR: [] }) : '';}
-            function safeUrl(u){if(!u)return'';var t=u.trim();if(/^(javascript:|data:|vbscript:)/i.test(t))return'#';return t.startsWith('http')?t:'https://'+t;}
+            function esc(s){
+                if (!s) return '';
+                if (typeof DOMPurify === 'undefined') return String(s);
+                return DOMPurify.sanitize(s + '', { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+            }
+            function safeUrl(u){
+                if (!u || typeof u !== 'string') return '';
+                var t = u.replace(/[\u0000-\u001f\u007f]+/g, '').trim();
+                if (!t || t.startsWith('//')) return '#';
+                var hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(t);
+                var candidate = hasScheme ? t : 'https://' + t;
+                try {
+                    var parsed = new URL(candidate);
+                    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return '#';
+                    if (parsed.username || parsed.password) return '#';
+                    return parsed.href;
+                } catch (_) {
+                    return '#';
+                }
+            }
             function validEmail(e){return/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e||'');}
             function resize(e){e.style.setProperty('--ta-height','auto');e.style.setProperty('--ta-height',e.scrollHeight+'px');}
-            function parseDesc(txt){if(!txt)return'';var cleanTxt = DOMPurify.sanitize(txt, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br'], ALLOWED_ATTR: [] }); var lines=cleanTxt.split('\n');var html='',inL=false;lines.forEach(function(l){var t=l.trim();if(!t){if(inL){html+='</ul>';inL=false;}return;}var m=t.match(/^[-*]\s+(.*)/);if(m){if(!inL){html+='<ul>';inL=true;}html+='<li>'+m[1]+'</li>';}else{if(inL){html+='</ul>';inL=false;}html+='<p class="cv-desc-p">'+t+'</p>';}});if(inL)html+='</ul>';return html;}
+            function parseDesc(txt){
+                if(!txt)return'';
+                var sanitized = typeof DOMPurify !== 'undefined'
+                    ? DOMPurify.sanitize(txt, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br'], ALLOWED_ATTR: [] })
+                    : txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                var lines=sanitized.split('\n');var html='',inL=false;
+                lines.forEach(function(l){var t=l.trim();if(!t){if(inL){html+='</ul>';inL=false;}return;}var m=t.match(/^[-*]\s+(.*)/);if(m){if(!inL){html+='<ul>';inL=true;}html+='<li>'+m[1]+'</li>';}else{if(inL){html+='</ul>';inL=false;}html+='<p class="cv-desc-p">'+t+'</p>';}});
+                if(inL)html+='</ul>';return html;
+            }
 
             var App={
                 s:def(),_st:null,isPro:false,selectedPlan:'monthly',
@@ -457,9 +544,12 @@
                 // ─── FIREBASE AUTH ───────────────────────────────────
                 initFirebaseAuth: function() {
                     var self = this;
+                    try { localStorage.removeItem('cvpro_pro'); } catch (_) {}
                     if (!firebaseReady) {
-                        // Firebase not configured yet — fall back to localStorage
-                        self.isPro = localStorage.getItem('cvpro_pro') === '1';
+                        self.isPro = false;
+                        self.hasSubscription = false;
+                        self.subStatus = null;
+                        self.exportCredits = 0;
                         self.updateProUI();
                         self.updateAuthUI();
                         self.checkStripeReturn();
@@ -475,9 +565,10 @@
                                 self.checkStripeReturn();
                             });
                         } else {
-                            // Not logged in — check local cache as fallback
-                            self.isPro = localStorage.getItem('cvpro_pro') === '1';
+                            self.isPro = false;
+                            self.hasSubscription = false;
                             self.subStatus = null;
+                            self.exportCredits = 0;
                             self.updateAuthUI();
                             self.updateProUI();
                             self.checkStripeReturn();
@@ -487,9 +578,11 @@
 
                 checkProStatusCloud: function(cb) {
                     const self = this;
-                    
                     if (!firebaseReady || !self.currentUser) {
-                        self.isPro = localStorage.getItem('cvpro_pro') === '1';
+                        self.isPro = false;
+                        self.hasSubscription = false;
+                        self.subStatus = null;
+                        self.exportCredits = 0;
                         if (cb) cb();
                         return;
                     }
@@ -497,24 +590,27 @@
                     fbDb.collection('users').doc(self.currentUser.uid).get()
                         .then((doc) => {
                             if (doc.exists) {
-                                const data = doc.data();
-                                const isActive = !!data.isPro || (typeof data.exportCredits === 'number' && data.exportCredits > 0);
-                                
-                                self.isPro = isActive;
-                                self.subStatus = data.status || null;
-                                
-                                localStorage.setItem('cvpro_pro', isActive ? '1' : '0');
+                                const data = doc.data() || {};
+                                const credits = typeof data.exportCredits === 'number' && data.exportCredits > 0 ? data.exportCredits : 0;
+                                const hasSub = data.isPro === true;
+                                self.hasSubscription = hasSub;
+                                self.exportCredits = credits;
+                                self.isPro = hasSub || credits > 0;
+                                self.subStatus = data.status || (hasSub ? 'active' : null);
                             } else {
                                 self.isPro = false;
+                                self.hasSubscription = false;
                                 self.subStatus = null;
-                                localStorage.removeItem('cvpro_pro');
+                                self.exportCredits = 0;
                             }
-                            
                             if (cb) cb();
                         })
                         .catch((err) => {
                             console.warn('Firestore read error:', err);
                             self.isPro = false;
+                            self.hasSubscription = false;
+                            self.subStatus = null;
+                            self.exportCredits = 0;
                             if (cb) cb();
                         });
                 },
@@ -536,11 +632,13 @@
                         }
                         if (avatar) {
                             avatar.replaceChildren();
-                            if (user.photoURL) {
+                            var safeAvatarUrl = user.photoURL && /^https:\/\//i.test(user.photoURL) ? safeUrl(user.photoURL) : '';
+                            if (safeAvatarUrl && safeAvatarUrl !== '#') {
                                 var img = document.createElement('img');
-                                img.src = user.photoURL;
+                                img.src = safeAvatarUrl;
                                 img.alt = 'User Avatar';
                                 img.className = 'user-avatar-img';
+                                img.referrerPolicy = 'no-referrer';
                                 avatar.appendChild(img);
                             } else {
                                 avatar.textContent = (user.displayName || user.email || '?').charAt(0).toUpperCase();
@@ -589,8 +687,10 @@
                     var self = this;
                     fbAuth.signOut().then(function() {
                         self.isPro = false;
+                        self.hasSubscription = false;
                         self.subStatus = null;
-                        localStorage.removeItem('cvpro_pro');
+                        self.exportCredits = 0;
+                        try { localStorage.removeItem('cvpro_pro'); } catch (_) {}
                         self.updateProUI();
                         self.updateAuthUI();
                         self.toast(t('toastLoggedOut'), 'info');
@@ -700,17 +800,24 @@
                 flashSave:function(){var i=$('saveInd');if(!i)return;i.classList.add('on');clearTimeout(this._st);this._st=setTimeout(function(){i.classList.remove('on');},2000);},
 
                 bindAccordions:function(){
-                    var saved=JSON.parse(localStorage.getItem(LSAC)||'{}');
+                    var saved={};
+                    try { saved=JSON.parse(localStorage.getItem(LSAC)||'{}'); } catch(_) { saved={}; }
                     document.querySelectorAll('.sec[data-id]').forEach(function(sec){
                         var id=sec.dataset.id;
-                        if(saved[id]!==undefined)sec.classList.toggle('open',saved[id]);
+                        if(saved[id]!==undefined)sec.classList.toggle('open',!!saved[id]);
                         var hd=sec.querySelector('.sec__hd');
-                        if(hd)hd.addEventListener('click',function(){
-                            sec.classList.toggle('open');
-                            var st=JSON.parse(localStorage.getItem(LSAC)||'{}');
-                            st[id]=sec.classList.contains('open');
-                            localStorage.setItem(LSAC,JSON.stringify(st));
-                        });
+                        if(hd) {
+                            hd.setAttribute('aria-expanded', sec.classList.contains('open') ? 'true' : 'false');
+                            hd.addEventListener('click',function(){
+                                sec.classList.toggle('open');
+                                var isOpen=sec.classList.contains('open');
+                                hd.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                                var st={};
+                                try { st=JSON.parse(localStorage.getItem(LSAC)||'{}'); } catch(_) { st={}; }
+                                st[id]=isOpen;
+                                localStorage.setItem(LSAC,JSON.stringify(st));
+                            });
+                        }
                     });
                 },
 
@@ -729,18 +836,33 @@
 
                 bindModals:function(){
                     var self=this;
+                    var lastFocusedEl = null;
+                    function openModal(modal) {
+                        if (!modal) return;
+                        lastFocusedEl = document.activeElement;
+                        modal.classList.add('open');
+                        var firstBtn = modal.querySelector('button, input, [tabindex]');
+                        if (firstBtn) firstBtn.focus();
+                    }
+                    function closeModal(modal) {
+                        if (!modal) return;
+                        modal.classList.remove('open');
+                        if (lastFocusedEl && typeof lastFocusedEl.focus === 'function') {
+                            lastFocusedEl.focus();
+                            lastFocusedEl = null;
+                        }
+                    }
 
                     // ── Reset Modal ────────────────────────────────────
                     var rm=$('resetModal');
-                    $('clearBtn').addEventListener('click',function(){rm.classList.add('open');});
-                    $('resetCancel').addEventListener('click',function(){rm.classList.remove('open');});
+                    $('clearBtn').addEventListener('click',function(){openModal(rm);});
+                    $('resetCancel').addEventListener('click',function(){closeModal(rm);});
                     $('resetConfirm').addEventListener('click',function(){
-                        [LSK,LSAC,LSPROF].forEach(function(k){localStorage.removeItem(k);});
+                        [LSK,LSAC,LSPROF,'cvpro_pro','cvpro_gdpr'].forEach(function(k){localStorage.removeItem(k);});
                         sessionStorage.clear();
-                        localStorage.removeItem('cvpro_pro');
                         location.reload();
                     });
-                    rm.addEventListener('click',function(e){if(e.target===rm)rm.classList.remove('open');});
+                    rm.addEventListener('click',function(e){if(e.target===rm)closeModal(rm);});
 
                     // ── PRO Modal ──────────────────────────────────────
                     var pm=$('proModal');
@@ -751,63 +873,86 @@
                         planOneTime.addEventListener('click', function(){
                             self.selectedPlan = 'onetime';
                             planOneTime.classList.add('pro-plan--selected');
+                            planOneTime.setAttribute('aria-checked', 'true');
                             planMonthly.classList.remove('pro-plan--selected');
-                            $('proPayBtn').textContent = 'Cumpără (3 EUR)';
+                            planMonthly.setAttribute('aria-checked', 'false');
+                            $('proPayBtn').textContent = t('modalOneTimeBuy');
                         });
                         planMonthly.addEventListener('click', function(){
                             self.selectedPlan = 'monthly';
                             planMonthly.classList.add('pro-plan--selected');
+                            planMonthly.setAttribute('aria-checked', 'true');
                             planOneTime.classList.remove('pro-plan--selected');
-                            $('proPayBtn').textContent = 'Cumpără PRO';
+                            planOneTime.setAttribute('aria-checked', 'false');
+                            $('proPayBtn').textContent = t('modalProBuy');
                         });
                     }
 
                     $('proCancel').addEventListener('click',function(){
-                        pm.classList.remove('open');
+                        closeModal(pm);
                         self.generateSecurePDF();
                     });
                     $('proPayBtn').addEventListener('click',function(){
-                        // Dacă utilizatorul nu e autentificat, cere login mai întâi
-                        if (firebaseReady && !self.currentUser) {
-                            pm.classList.remove('open');
-                            $('loginModal').classList.add('open');
+                        // Fail-closed: fără Firebase configurat și cont autentificat, plata nu poate fi legată de UID
+                        if (!firebaseReady) {
+                            self.toast(t('toastFirebaseNotSet'), 'error');
+                            return;
+                        }
+                        if (!self.currentUser) {
+                            closeModal(pm);
+                            openModal($('loginModal'));
                             return;
                         }
                         // Construiește URL-ul Stripe cu firebase UID
                         var url = self.selectedPlan === 'onetime' ? STRIPE_URL_ONETIME : STRIPE_URL_MONTHLY;
                         if (!url || url.startsWith('LIPESTE')) {
-                            self.toast('Te rugăm să adaugi linkurile Stripe în app.js', 'error');
+                            self.toast(t('toastStripeNotSet'), 'error');
                             return;
                         }
                         // Adaugă UID-ul Firebase ca parametru client_reference_id
-                        // Stripe îl trimite în webhook și Cloud Function îl folosește
-                        if (firebaseReady && self.currentUser) {
-                            var sep = url.indexOf('?') > -1 ? '&' : '?';
-                            url = url + sep + 'client_reference_id=' + encodeURIComponent(self.currentUser.uid);
-                        }
+                        var sep = url.indexOf('?') > -1 ? '&' : '?';
+                        url = url + sep + 'client_reference_id=' + encodeURIComponent(self.currentUser.uid);
                         window.location.href = url;
                     });
-                    pm.addEventListener('click',function(e){if(e.target===pm)pm.classList.remove('open');});
+                    pm.addEventListener('click',function(e){if(e.target===pm)closeModal(pm);});
 
                     // ── Login Modal ────────────────────────────────────
                     var lm = $('loginModal');
-                    $('loginOpenBtn').addEventListener('click', function() { lm.classList.add('open'); });
-                    $('loginCancel').addEventListener('click', function() { lm.classList.remove('open'); });
+                    $('loginOpenBtn').addEventListener('click', function() { openModal(lm); });
+                    $('loginCancel').addEventListener('click', function() { closeModal(lm); });
                     $('loginGoogleBtn').addEventListener('click', function() { self.loginWithGoogle(); });
-                    lm.addEventListener('click', function(e) { if (e.target === lm) lm.classList.remove('open'); });
+                    lm.addEventListener('click', function(e) { if (e.target === lm) closeModal(lm); });
 
                     // ── Manage Subscription Modal ──────────────────────
                     var msm = $('manageSubModal');
                     $('manageSubBtn').addEventListener('click', function() { self.openManageSub(); });
-                    $('manageSubClose').addEventListener('click', function() { msm.classList.remove('open'); });
+                    $('manageSubClose').addEventListener('click', function() { closeModal(msm); });
                     $('openBillingPortal').addEventListener('click', function() {
                         if (!STRIPE_BILLING_PORTAL || STRIPE_BILLING_PORTAL.startsWith('LIPESTE')) {
                             self.toast(t('toastPortalNotSet'), 'warning');
                             return;
                         }
-                        window.open(STRIPE_BILLING_PORTAL, '_blank');
+                        window.open(STRIPE_BILLING_PORTAL, '_blank', 'noopener,noreferrer');
                     });
-                    msm.addEventListener('click', function(e) { if (e.target === msm) msm.classList.remove('open'); });
+                    msm.addEventListener('click', function(e) { if (e.target === msm) closeModal(msm); });
+
+                    // ── Privacy & GDPR Modal ───────────────────────────
+                    var prv = $('privacyModal');
+                    if (prv) {
+                        var openPrv = function() { openModal(prv); };
+                        if ($('gdprPrivacyOpen')) $('gdprPrivacyOpen').addEventListener('click', openPrv);
+                        if ($('privacyFooterBtn')) $('privacyFooterBtn').addEventListener('click', openPrv);
+                        if ($('privacyClose')) $('privacyClose').addEventListener('click', function() { closeModal(prv); });
+                        if ($('gdprEraseLocalBtn')) {
+                            $('gdprEraseLocalBtn').addEventListener('click', function() {
+                                [LSK, LSAC, LSPROF, 'cvpro_pro', 'cvpro_gdpr'].forEach(function(k) { localStorage.removeItem(k); });
+                                sessionStorage.clear();
+                                self.toast(t('toastLocalErased'), 'info');
+                                setTimeout(function() { location.reload(); }, 450);
+                            });
+                        }
+                        prv.addEventListener('click', function(e) { if (e.target === prv) closeModal(prv); });
+                    }
 
                     // ── Logout ─────────────────────────────────────────
                     $('logoutBtn').addEventListener('click', function() { self.logout(); });
@@ -815,10 +960,11 @@
                     // ── Escape key ─────────────────────────────────────
                     document.addEventListener('keydown',function(e){
                         if(e.key==='Escape'){
-                            rm.classList.remove('open');
-                            pm.classList.remove('open');
-                            lm.classList.remove('open');
-                            msm.classList.remove('open');
+                            if (rm.classList.contains('open')) closeModal(rm);
+                            if (pm.classList.contains('open')) closeModal(pm);
+                            if (lm.classList.contains('open')) closeModal(lm);
+                            if (msm.classList.contains('open')) closeModal(msm);
+                            if (prv && prv.classList.contains('open')) closeModal(prv);
                         }
                     });
                 },
@@ -845,7 +991,11 @@
                         if (!self.isPro) { $('proModal').classList.add('open'); return; }
                         self.copyText();
                     });
-                    $('atsHd').addEventListener('click',function(){$('atsPanel').classList.toggle('expanded');});
+                    $('atsHd').addEventListener('click',function(){
+                        var panel = $('atsPanel');
+                        panel.classList.toggle('expanded');
+                        $('atsHd').setAttribute('aria-expanded', panel.classList.contains('expanded') ? 'true' : 'false');
+                    });
                 },
 
                 bindKeys:function(){
@@ -866,48 +1016,69 @@
 
                     const btn = $('printBtn');
                     const originalText = btn.textContent;
-                    btn.textContent = 'Se generează PDF... ⏳';
+                    btn.textContent = currentLang === 'ro' ? 'Se generează PDF... ⏳' : 'Generating PDF... ⏳';
                     btn.disabled = true;
                     btn.classList.add('btn--loading');
                     
                     var loadingOverlay = $('loadingOverlay');
                     if (loadingOverlay) loadingOverlay.classList.remove('hidden');
 
-                    self.toast('Se generează PDF-ul pe server...', 'info');
+                    self.toast(currentLang === 'ro' ? 'Se generează PDF-ul pe server...' : 'Generating PDF on server...', 'info');
 
                     try {
-                        let token = null;
-                        if (typeof firebase !== 'undefined' && firebase.apps.length && self.currentUser) {
-                            token = await self.currentUser.getIdToken();
+                        const doRequest = async (forceRefreshToken) => {
+                            const headers = { 'Content-Type': 'application/json' };
+                            if (typeof firebase !== 'undefined' && firebase.apps.length && self.currentUser) {
+                                const token = await self.currentUser.getIdToken(forceRefreshToken);
+                                if (token) headers.Authorization = 'Bearer ' + token;
+                            }
+                            return fetch(CLOUD_FUNCTION_URL, {
+                                method: 'POST',
+                                signal: AbortSignal.timeout(45000),
+                                headers,
+                                body: JSON.stringify({ cvData: self.s })
+                            });
+                        };
+
+                        let response = await doRequest(false);
+                        if (response.status === 401 && self.currentUser) {
+                            response = await doRequest(true);
                         }
 
-                        // OPTIMIZARE: Trimitem doar obiectul curat cu texte și setări grafice (s)
-                        const response = await fetch(CLOUD_FUNCTION_URL, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                cvData: self.s, 
-                                token: token
-                            })
-                        });
-
-                        if (!response.ok) throw new Error('Eroare server: ' + response.statusText);
+                        if (!response.ok) {
+                            let problemDetail = '';
+                            try {
+                                const errPayload = await response.json();
+                                problemDetail = errPayload.detail || errPayload.error || '';
+                            } catch (_) {}
+                            if (response.status >= 400 && response.status < 500) {
+                                self.toast(problemDetail || ('Eroare cerere export (' + response.status + ').'), 'error');
+                                return;
+                            }
+                            throw new Error(problemDetail || ('Eroare server: ' + response.status));
+                        }
 
                         const blob = await response.blob();
                         const url = window.URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
-                        a.download = (self.s.name || 'CV').replace(/\s+/g, '_') + '.pdf';
+                        a.download = (self.s.name || 'CV').replace(/[^a-zA-Z0-9_-]+/g, '_') + '.pdf';
                         document.body.appendChild(a);
                         a.click();
                         a.remove();
                         window.URL.revokeObjectURL(url);
                         
-                        self.toast('PDF descărcat cu succes!', 'success');
+                        self.toast(currentLang === 'ro' ? 'PDF descărcat cu succes!' : 'PDF downloaded successfully!', 'success');
+                        if (firebaseReady && self.currentUser) {
+                            self.checkProStatusCloud(function() {
+                                self.updateProUI();
+                                self.updateAuthUI();
+                            });
+                        }
 
                     } catch (err) {
                         console.error('Eroare generare PDF:', err);
-                        self.toast('Serverul de export este indisponibil momentan. Se deschide dialogul nativ de salvare...', 'info');
+                        self.toast(currentLang === 'ro' ? 'Serverul de export este indisponibil momentan. Se deschide dialogul nativ de salvare...' : 'Export server temporarily unavailable. Opening browser print dialog...', 'info');
                         setTimeout(function() {
                             window.print();
                         }, 600);
@@ -1135,9 +1306,11 @@
                             var card=el('div','item-card');card.appendChild(ctrls(items,i));
                             var fs=el('div','item-card__fields');
                             fields.forEach(function(fd){
+                                var fieldId = contId + '_' + i + '_' + fd.k;
                                 var f=el('div','field'),lb=el('label','field__lbl',fd.l);
-                                if(fd.ta){var inp=el('textarea','field__ta');inp.rows=3;if(fd.ph)inp.placeholder=fd.ph;bind(inp,item,fd.k,true);f.append(lb,inp);}
-                                else{var inp=el('input','field__inp');inp.type=fd.k==='url'?'url':'text';if(fd.ph)inp.placeholder=fd.ph;bind(inp,item,fd.k);f.append(lb,inp);}
+                                lb.htmlFor = fieldId;
+                                if(fd.ta){var inp=el('textarea','field__ta');inp.id=fieldId;inp.rows=3;if(fd.ph)inp.placeholder=fd.ph;bind(inp,item,fd.k,true);f.append(lb,inp);}
+                                else{var inp=el('input','field__inp');inp.id=fieldId;inp.type=fd.k==='url'?'url':'text';if(fd.ph)inp.placeholder=fd.ph;bind(inp,item,fd.k);f.append(lb,inp);}
                                 fs.appendChild(f);
                             });
                             card.appendChild(fs);cont.appendChild(card);
@@ -1154,7 +1327,9 @@
                         var card=el('div','item-card');card.appendChild(ctrls(s.links,i));
                         var fs=el('div','item-card__fields');
                         [{k:'label',l:currentLang==='ro'?'Etichetă':'Label',ph:'GitHub'},{k:'url',l:'URL',ph:'https://...'}].forEach(function(fd){
+                            var fieldId = 'linksCont_' + i + '_' + fd.k;
                             var f=el('div','field'),lb=el('label','field__lbl',fd.l),inp=el('input','field__inp');
+                            lb.htmlFor = fieldId; inp.id = fieldId;
                             inp.type=fd.k==='url'?'url':'text';inp.placeholder=fd.ph||'';bind(inp,l,fd.k);f.append(lb,inp);fs.appendChild(f);
                         });
                         card.appendChild(fs);lc.appendChild(card);
@@ -1211,7 +1386,7 @@
                         var dn2=el('button','ctrl-btn');dn2.setAttribute('aria-label',t('moveDown'));dn2.appendChild(ico('down'));
                         dn2.onclick=function(e){e.stopPropagation();self.move(s.order,i,1);};
                         cd.append(u2,dn2);
-                        var eye=el('span','order-row__eye',hidden?'🚫':'👁');eye.setAttribute('role','button');eye.setAttribute('aria-label',hidden?t('showSec'):t('hideSec'));
+                        var eye=el('button','order-row__eye',hidden?'🚫':'👁');eye.type='button';eye.setAttribute('aria-pressed',hidden?'true':'false');eye.setAttribute('aria-label',hidden?t('showSec'):t('hideSec'));
                         eye.onclick=function(){
                             if(hidden)self.s.hidden=s.hidden.filter(function(h){return h!==key;});
                             else self.s.hidden=s.hidden.concat([key]);
@@ -1237,18 +1412,19 @@
                     else eb.classList.add('hidden');
 
                     var ph=$('cv-photo');
-                    if(s.photo){ph.src=s.photo;ph.classList.remove('hidden');}
-                    else{ph.classList.add('hidden');ph.src='';}
+                    var safePhoto = (typeof s.photo === 'string' && /^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+$/i.test(s.photo.trim())) ? s.photo.trim() : '';
+                    if(safePhoto){ph.src=safePhoto;ph.classList.remove('hidden');}
+                    else{ph.classList.add('hidden');ph.removeAttribute('src');}
 
                     var cont=$('cv-cont');cont.replaceChildren();
                     function ci(tx,icon,href){
                         var d=el('div','cv-ci');d.appendChild(ico(icon));
-                        if(href){var a=el('a','',tx);a.href=href;if(href.startsWith('http')){a.target='_blank';a.rel='noopener noreferrer';}d.appendChild(a);}
+                        if(href && href !== '#'){var a=el('a','',tx);a.href=href;if(href.startsWith('http')){a.target='_blank';a.rel='noopener noreferrer';}d.appendChild(a);}
                         else d.appendChild(document.createTextNode(tx));
                         return d;
                     }
-                    if(s.email)cont.appendChild(ci(s.email,'email','mailto:'+s.email));
-                    if(s.phone)cont.appendChild(ci(s.phone,'phone','tel:'+s.phone));
+                    if(s.email)cont.appendChild(ci(s.email,'email','mailto:'+String(s.email).replace(/[\r\n\0]+/g,'')));
+                    if(s.phone)cont.appendChild(ci(s.phone,'phone','tel:'+String(s.phone).replace(/[\r\n\0]+/g,'')));
                     if(s.location)cont.appendChild(ci(s.location,'location'));
                     if(s.linkedin)cont.appendChild(ci('LinkedIn','link',safeUrl(s.linkedin)));
                     if(s.github)cont.appendChild(ci('GitHub','link',safeUrl(s.github)));
@@ -1328,7 +1504,10 @@
                                 if(secEl){
                                     if(!secEl.classList.contains('open')){
                                         secEl.classList.add('open');
-                                        var st=JSON.parse(localStorage.getItem(LSAC)||'{}');
+                                        var secHd=secEl.querySelector('.sec__hd');
+                                        if(secHd)secHd.setAttribute('aria-expanded','true');
+                                        var st={};
+                                        try{st=JSON.parse(localStorage.getItem(LSAC)||'{}');}catch(_){st={};}
                                         st[mappedId]=true;
                                         localStorage.setItem(LSAC,JSON.stringify(st));
                                     }
@@ -1585,6 +1764,7 @@
 
                 importJSON:function(e){
                     var self=this,f=e.target.files[0];if(!f)return;
+                    if(f.size>2*1024*1024){this.toast(t('toastImportErr'),'error');e.target.value='';return;}
                     var r=new FileReader();
                     r.onload=function(ev){
                         try{

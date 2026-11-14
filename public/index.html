@@ -5,10 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0a0f1e">
-    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="robots" content="index, follow">
     <meta name="description"
-        content="Constructor CV profesional optimizat ATS. Creează CV-ul perfect, exportă PDF fără watermark cu PRO. 1.50 EUR / export sau 5 EUR / lună.">
+        content="Constructor CV profesional optimizat ATS. Creează CV-ul perfect, exportă PDF fără watermark cu PRO. 3 EUR / export sau 5 EUR / lună.">
     <meta property="og:title" content="CV Builder Pro — ATS Optimized">
     <meta property="og:description"
         content="Constructor CV profesional optimizat ATS. Gratuit cu watermark, PRO fără watermark.">
@@ -30,9 +29,9 @@
       "@type": "Service",
       "name": "CV Builder Pro — Constructor CV Optimizat ATS",
       "description": "Constructor CV profesional optimizat ATS cu analiză în timp real și export PDF A4.",
-      "url": "https://cvsmartats.web.app",
+      "url": "https://cvsmartats.web.app/",
       "serviceType": "Generare și Optimizare CV ATS",
-      "offers": {"@type": "Offer","price": "1.50","priceCurrency": "EUR"}
+      "offers": {"@type": "Offer","price": "3.00","priceCurrency": "EUR"}
     }
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -43,13 +42,14 @@
     <script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-        <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css">
 
-    <!-- DOMPurify for XSS Protection -->
-    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+    <!-- Vendored DOMPurify 3.4.17 for strict CSP & XSS Protection -->
+    <script defer src="vendor/purify.min.js"></script>
 </head>
 
 <body>
+    <a class="skip-link" href="#cvDoc" data-i18n="skipToPreview">Sari la previzualizarea CV-ului</a>
 
     <!-- LOADING OVERLAY -->
     <div id="loadingOverlay" class="loading-overlay hidden">
@@ -68,13 +68,29 @@
     </nav>
 
     <!-- GDPR BANNER -->
-    <div id="gdprBanner" class="gdpr-banner hidden">
+    <div id="gdprBanner" class="gdpr-banner hidden" role="region" aria-label="Notificare confidențialitate">
         <div class="gdpr-content">
-            <span class="gdpr-icon">🛡️</span>
+            <span class="gdpr-icon" aria-hidden="true">🛡️</span>
             <p data-i18n="gdprText">Folosim stocarea locală și cookie-uri strict necesare pentru a-ți salva progresul și a permite autentificarea. Datele tale sunt private și nu le vindem terților.</p>
         </div>
         <div class="gdpr-actions">
-            <button class="btn btn--ok btn--sm" id="gdprAccept" data-i18n="gdprAcceptBtn">Am înțeles și sunt de acord</button>
+            <button type="button" class="btn btn--ol btn--sm" id="gdprPrivacyOpen" data-i18n="gdprPrivacyBtn">Confidențialitate GDPR</button>
+            <button type="button" class="btn btn--ok btn--sm" id="gdprAccept" data-i18n="gdprAcceptBtn">Am înțeles și sunt de acord</button>
+        </div>
+    </div>
+
+    <!-- PRIVACY & GDPR MODAL -->
+    <div class="modal-bg" id="privacyModal" role="dialog" aria-modal="true" aria-labelledby="privacyH">
+        <div class="modal">
+            <h2 class="modal__title" id="privacyH" data-i18n="privacyModalTitle">🛡️ Confidențialitate &amp; Drepturi GDPR</h2>
+            <div class="modal__body" id="privacyModalBody">
+                <p class="privacy-p" data-i18n="privacyBody1">Datele introduse în CV sunt stocate local în browserul tău (localStorage) și trimise temporar către server strict în momentul în care apeși Export PDF (fără arhivare permanentă a PDF-ului).</p>
+                <p class="privacy-p" data-i18n="privacyBody2">La autentificarea opțională cu Google, prelucrăm Nume, Email și UID în Firebase exclusiv pentru gestionarea contului și facturării Stripe. Poți exporta oricând JSON sau șterge toate datele locale imediat.</p>
+            </div>
+            <div class="modal__acts">
+                <button type="button" class="btn btn--danger btn--sm" id="gdprEraseLocalBtn" data-i18n="gdprEraseLocalBtn">Șterge datele locale</button>
+                <button type="button" class="btn btn--ol" id="privacyClose" data-i18n="manageSubClose">Închide</button>
+            </div>
         </div>
     </div>
 
@@ -133,18 +149,18 @@
         <div class="modal pro-modal">
             <h2 class="modal__title" id="proH" data-i18n="modalProTitle">Deblochează Export PRO</h2>
             <p class="modal__body" id="proModalBody">Versiunea <strong>gratuită</strong> exportă cu watermark discret. Cu <strong>PRO</strong> obții PDF-ul curat, fără nicio siglă sau watermark.</p>
-            <div class="pro-plans pro-plans--grid">
-                <div class="pro-plan pro-plan--selectable" id="planOneTime">
+            <div class="pro-plans pro-plans--grid" role="radiogroup" aria-label="Planuri PRO">
+                <button type="button" class="pro-plan pro-plan--selectable" id="planOneTime" role="radio" aria-checked="false">
                     <div class="pro-plan__price pro-plan__price--onetime"><sup>EUR</sup>3</div>
                     <div class="pro-plan__label pro-plan__label--onetime" data-i18n="planOnetimeLabel">Plată Unică</div>
                     <div class="pro-plan__desc pro-plan__desc--standard" data-i18n="planOnetimeDesc">1 Export fără watermark</div>
-                </div>
-                <div class="pro-plan featured pro-plan--featured" id="planMonthly">
+                </button>
+                <button type="button" class="pro-plan featured pro-plan--featured" id="planMonthly" role="radio" aria-checked="true">
                     <div class="pro-plan__badge pro-plan__badge--top" data-i18n="planBadge">CEL MAI POPULAR</div>
                     <div class="pro-plan__price pro-plan__price--monthly"><sup>EUR</sup>5</div>
                     <div class="pro-plan__label pro-plan__label--monthly" data-i18n="planMonthlyLabel">/ lună</div>
                     <div class="pro-plan__desc pro-plan__desc--standard" data-i18n="planMonthlyDesc">Exporturi nelimitate</div>
-                </div>
+                </button>
             </div>
             <ul class="pro-features">
                 <li data-i18n="proFeat1">PDF fără watermark</li>
@@ -164,10 +180,10 @@
     <!-- ═══════════════ SIDEBAR PANEL ═══════════════ -->
     <aside class="sidebar" aria-label="Editor CV">
         <div class="sb-header">
-            <div class="app-title">CV Builder Pro<small data-i18n="appSubtitle">ATS Optimized | Securizat &amp; Rapid</small></div>
+            <h1 class="app-title">CV Builder Pro<small data-i18n="appSubtitle">ATS Optimized | Securizat &amp; Rapid</small></h1>
             <div class="sb-actions">
-                <button class="lang-btn" id="langToggle" title="Switch Language / Schimbă Limba">🇬🇧 EN</button>
-                <button class="btn btn--ol btn--sm" id="exportBtn" title="Ctrl+S" data-i18n="btnSaveJSON">Salvare JSON</button>
+                <button type="button" class="lang-btn" id="langToggle" title="Switch Language / Schimbă Limba" aria-label="Schimbă limba aplicației">🇬🇧 EN</button>
+                <button type="button" class="btn btn--ol btn--sm" id="exportBtn" title="Ctrl+S" data-i18n="btnSaveJSON">Salvare JSON</button>
                 <label class="btn btn--ol btn--sm btn--file-label"><span data-i18n="btnImport">Importă</span><input type="file" id="importInput" accept=".json" class="sr-only"></label>
             </div>
         </div>
@@ -186,28 +202,29 @@
             </div>
             <!-- Buttons -->
             <div class="auth-bar__actions-group">
-                <button class="btn btn--ol btn--xs" id="loginOpenBtn" data-i18n="btnLogin">Login</button>
-                <button class="btn btn--ghost btn--xs hidden" id="logoutBtn" title="Delogare" data-i18n-title="btnLogout">↩</button>
-                <button class="btn btn--ol btn--xs hidden" id="manageSubBtn" title="Abonament" data-i18n-title="btnManageSub">⚙️</button>
+                <button type="button" class="btn btn--ol btn--xs" id="privacyFooterBtn" title="GDPR / Confidențialitate" aria-label="Confidențialitate GDPR">🛡️</button>
+                <button type="button" class="btn btn--ol btn--xs" id="loginOpenBtn" data-i18n="btnLogin">Login</button>
+                <button type="button" class="btn btn--ghost btn--xs hidden" id="logoutBtn" title="Delogare" aria-label="Delogare" data-i18n-title="btnLogout">↩</button>
+                <button type="button" class="btn btn--ol btn--xs hidden" id="manageSubBtn" title="Abonament" aria-label="Gestionează abonament" data-i18n-title="btnManageSub">⚙️</button>
             </div>
         </div>
 
         <div class="profile-bar">
-            <label data-i18n="profileLabel">Profil CV activ</label>
+            <label for="profileSelect" data-i18n="profileLabel">Profil CV activ</label>
             <div class="profile-row">
                 <select id="profileSelect" class="profile-sel" aria-label="Schimbă profilul"></select>
-                <button class="btn btn--ok btn--sm" id="newProfileBtn" title="Profil nou">+</button>
-                <button class="btn btn--ol btn--sm" id="renameProfileBtn" title="Redenumește">✏️</button>
-                <button class="btn btn--danger btn--sm" id="deleteProfileBtn" title="Șterge">✕</button>
+                <button type="button" class="btn btn--ok btn--sm" id="newProfileBtn" title="Profil nou" aria-label="Profil CV nou">+</button>
+                <button type="button" class="btn btn--ol btn--sm" id="renameProfileBtn" title="Redenumește" aria-label="Redenumește profilul">✏️</button>
+                <button type="button" class="btn btn--danger btn--sm" id="deleteProfileBtn" title="Șterge" aria-label="Șterge profilul">✕</button>
             </div>
         </div>
 
         <!-- ACCORDION: SMART PASTE -->
         <div class="sec open sec--smart" data-id="smart">
-            <div class="sec__hd"><span class="sec__icon">⚡</span><span class="sec__label" data-i18n="secSmart">Import Rapid (Smart Paste)</span><svg class="chevron" viewBox="0 0 20 20">
+            <button type="button" class="sec__hd" aria-expanded="true"><span class="sec__icon" aria-hidden="true">⚡</span><span class="sec__label" data-i18n="secSmart">Import Rapid (Smart Paste)</span><svg class="chevron" aria-hidden="true" viewBox="0 0 20 20">
                     <path fill-rule="evenodd"
                         d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                </svg></div>
+                </svg></button>
             <div class="sec__body">
                 <div class="field">
                     <label class="field__lbl" for="in-smart" data-i18n="lblSmartText">Text brut (Experiențe / Proiecte)</label>
@@ -216,20 +233,20 @@
                     <p class="field__hint" data-i18n="smartHint">Detectează automat perioade, roluri, companii și skill-uri relevante.</p>
                 </div>
                 <div class="btn-row">
-                    <button class="btn btn--ok" id="parseExp" data-i18n="btnParseExp">+ Experiență</button>
-                    <button class="btn btn--ol" id="parseProj" data-i18n="btnParseProj">+ Proiect</button>
+                    <button type="button" class="btn btn--ok" id="parseExp" data-i18n="btnParseExp">+ Experiență</button>
+                    <button type="button" class="btn btn--ol" id="parseProj" data-i18n="btnParseProj">+ Proiect</button>
                 </div>
             </div>
         </div>
 
         <!-- ACCORDION: JOB DESCRIPTION COMPARATOR -->
         <div class="sec sec--jd" data-id="jd">
-            <div class="sec__hd sec__hd--jd"><span
-                    class="sec__icon">🎯</span><span class="sec__label" data-i18n="secJD">Compatibilitate Anunț Job (JD)</span><svg
-                    class="chevron" viewBox="0 0 20 20">
+            <button type="button" class="sec__hd sec__hd--jd" aria-expanded="false"><span
+                    class="sec__icon" aria-hidden="true">🎯</span><span class="sec__label" data-i18n="secJD">Compatibilitate Anunț Job (JD)</span><svg
+                    class="chevron" aria-hidden="true" viewBox="0 0 20 20">
                     <path fill-rule="evenodd"
                         d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                </svg></div>
+                </svg></button>
             <div class="sec__body">
                 <div class="field">
                     <label class="field__lbl" for="in-jd" data-i18n="lblJD">Lipește descrierea jobului căutat (JD)</label>
@@ -242,14 +259,14 @@
 
         <!-- ACCORDION: DATE PERSONALE -->
         <div class="sec" data-id="personal">
-            <div class="sec__hd"><span class="sec__icon">👤</span><span class="sec__label" data-i18n="secPersonal">Date Personale</span><svg
-                    class="chevron" viewBox="0 0 20 20">
+            <button type="button" class="sec__hd" aria-expanded="false"><span class="sec__icon" aria-hidden="true">👤</span><span class="sec__label" data-i18n="secPersonal">Date Personale</span><svg
+                    class="chevron" aria-hidden="true" viewBox="0 0 20 20">
                     <path fill-rule="evenodd"
                         d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                </svg></div>
+                </svg></button>
             <div class="sec__body">
                 <div class="field"><label class="field__lbl" for="in-photo" data-i18n="lblPhoto">Fotografie (Max 2MB)</label><input
-                        type="file" id="in-photo" accept="image/*"><button class="btn btn--ol btn--sm hidden"
+                        type="file" id="in-photo" accept="image/*"><button type="button" class="btn btn--ol btn--sm hidden"
                         id="rmPhoto" data-i18n="btnRmPhoto">Șterge fotografia</button></div>
                 <div class="field"><label class="field__lbl" for="in-name" data-i18n="lblName">Nume Complet</label><input type="text"
                         id="in-name" class="field__inp" placeholder="Ion Popescu" autocomplete="name" data-i18n-ph="phName"></div>
@@ -281,13 +298,13 @@
 
         <!-- ACCORDION: ASPECT -->
         <div class="sec" data-id="aspect">
-            <div class="sec__hd"><span class="sec__icon">🎨</span><span class="sec__label" data-i18n="secAspect">Aspect CV</span><svg
-                    class="chevron" viewBox="0 0 20 20">
+            <button type="button" class="sec__hd" aria-expanded="false"><span class="sec__icon" aria-hidden="true">🎨</span><span class="sec__label" data-i18n="secAspect">Aspect CV</span><svg
+                    class="chevron" aria-hidden="true" viewBox="0 0 20 20">
                     <path fill-rule="evenodd"
                         d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                </svg></div>
+                </svg></button>
             <div class="sec__body">
-                <div class="field"><label class="field__lbl" data-i18n="lblAccentColor">Culoare Accent</label>
+                <div class="field"><label class="field__lbl" for="in-color" data-i18n="lblAccentColor">Culoare Accent</label>
                     <div class="color-row"><input type="color" id="in-color" value="#3b82f6"
                             aria-label="Culoare accent"><span data-i18n="lblColorDesc">Culoarea de bază din șablon</span></div>
                 </div>
@@ -298,24 +315,24 @@
                         <option value="'Lora', serif">Lora — Serif Elegant</option>
                         <option value="Georgia, serif">Georgia — Serif Clasic</option>
                     </select></div>
-                <div class="rng-wrap"><label id="lPad"><span data-i18n="lblPad">Margini CV</span> <em id="vPad">20mm</em></label><input type="range"
+                <div class="rng-wrap"><label id="lPad" for="in-pad"><span data-i18n="lblPad">Margini CV</span> <em id="vPad">20mm</em></label><input type="range"
                         id="in-pad" min="5" max="35" value="20"></div>
-                <div class="rng-wrap"><label id="lSz"><span data-i18n="lblSize">Dimensiune Text</span> <em id="vSz">14px</em></label><input type="range"
+                <div class="rng-wrap"><label id="lSz" for="in-sz"><span data-i18n="lblSize">Dimensiune Text</span> <em id="vSz">14px</em></label><input type="range"
                         id="in-sz" min="11" max="18" value="14"></div>
-                <div class="rng-wrap"><label id="lLh"><span data-i18n="lblLH">Spațiere Linii</span> <em id="vLh">1.6</em></label><input type="range"
+                <div class="rng-wrap"><label id="lLh" for="in-lh"><span data-i18n="lblLH">Spațiere Linii</span> <em id="vLh">1.6</em></label><input type="range"
                         id="in-lh" min="1.2" max="2.0" step="0.1" value="1.6"></div>
-                <div class="rng-wrap"><label id="lGap"><span data-i18n="lblGap">Spațiere Secțiuni</span> <em id="vGap">24px</em></label><input
+                <div class="rng-wrap"><label id="lGap" for="in-gap"><span data-i18n="lblGap">Spațiere Secțiuni</span> <em id="vGap">24px</em></label><input
                         type="range" id="in-gap" min="10" max="40" value="24"></div>
             </div>
         </div>
 
         <!-- ACCORDION: REORDER & VISIBILITY -->
         <div class="sec" data-id="order">
-            <div class="sec__hd"><span class="sec__icon">⚙️</span><span class="sec__label" data-i18n="secOrder">Ordine &amp;
-                    Vizibilitate</span><svg class="chevron" viewBox="0 0 20 20">
+            <button type="button" class="sec__hd" aria-expanded="false"><span class="sec__icon" aria-hidden="true">⚙️</span><span class="sec__label" data-i18n="secOrder">Ordine &amp;
+                    Vizibilitate</span><svg class="chevron" aria-hidden="true" viewBox="0 0 20 20">
                     <path fill-rule="evenodd"
                         d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                </svg></div>
+                </svg></button>
             <div class="sec__body">
                 <p class="hint-txt" data-i18n="orderHint">Reordonează cu butoanele ↑↓. Apasă pe ochiul 👁 pentru a ascunde secțiunea în document.</p>
                 <div id="orderCont"></div>
@@ -324,86 +341,86 @@
 
         <!-- ACCORDION: LINKS -->
         <div class="sec" data-id="links">
-            <div class="sec__hd"><span class="sec__icon">🔗</span><span class="sec__label" data-i18n="secLinks">Link-uri
-                    Profesionale</span><svg class="chevron" viewBox="0 0 20 20">
+            <button type="button" class="sec__hd" aria-expanded="false"><span class="sec__icon" aria-hidden="true">🔗</span><span class="sec__label" data-i18n="secLinks">Link-uri
+                    Profesionale</span><svg class="chevron" aria-hidden="true" viewBox="0 0 20 20">
                     <path fill-rule="evenodd"
                         d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                </svg></div>
-            <div class="sec__body"><button class="btn btn--ol btn--sm btn--self" id="addLink" data-i18n="btnAddLink">+ Adaugă Link</button>
+                </svg></button>
+            <div class="sec__body"><button type="button" class="btn btn--ol btn--sm btn--self" id="addLink" data-i18n="btnAddLink">+ Adaugă Link</button>
                 <div id="linksCont"></div>
             </div>
         </div>
 
         <!-- ACCORDION: EXPERIENTA -->
         <div class="sec" data-id="exp">
-            <div class="sec__hd"><span class="sec__icon">💼</span><span class="sec__label" data-i18n="secExp">Experiență
-                    Profesională</span><svg class="chevron" viewBox="0 0 20 20">
+            <button type="button" class="sec__hd" aria-expanded="false"><span class="sec__icon" aria-hidden="true">💼</span><span class="sec__label" data-i18n="secExp">Experiență
+                    Profesională</span><svg class="chevron" aria-hidden="true" viewBox="0 0 20 20">
                     <path fill-rule="evenodd"
                         d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                </svg></div>
-            <div class="sec__body"><button class="btn btn--ol btn--sm btn--self" id="addExp" data-i18n="btnAddExp">+ Adaugă Experiență</button>
+                </svg></button>
+            <div class="sec__body"><button type="button" class="btn btn--ol btn--sm btn--self" id="addExp" data-i18n="btnAddExp">+ Adaugă Experiență</button>
                 <div id="expCont"></div>
             </div>
         </div>
 
         <!-- ACCORDION: PROIECTE -->
         <div class="sec" data-id="proj">
-            <div class="sec__hd"><span class="sec__icon">🚀</span><span class="sec__label" data-i18n="secProj">Proiecte</span><svg
-                    class="chevron" viewBox="0 0 20 20">
+            <button type="button" class="sec__hd" aria-expanded="false"><span class="sec__icon" aria-hidden="true">🚀</span><span class="sec__label" data-i18n="secProj">Proiecte</span><svg
+                    class="chevron" aria-hidden="true" viewBox="0 0 20 20">
                     <path fill-rule="evenodd"
                         d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                </svg></div>
-            <div class="sec__body"><button class="btn btn--ol btn--sm btn--self" id="addProj" data-i18n="btnAddProj">+ Adaugă Proiect</button>
+                </svg></button>
+            <div class="sec__body"><button type="button" class="btn btn--ol btn--sm btn--self" id="addProj" data-i18n="btnAddProj">+ Adaugă Proiect</button>
                 <div id="projCont"></div>
             </div>
         </div>
 
         <!-- ACCORDION: EDUCATIE -->
         <div class="sec" data-id="edu">
-            <div class="sec__hd"><span class="sec__icon">🎓</span><span class="sec__label" data-i18n="secEdu">Educație</span><svg
-                    class="chevron" viewBox="0 0 20 20">
+            <button type="button" class="sec__hd" aria-expanded="false"><span class="sec__icon" aria-hidden="true">🎓</span><span class="sec__label" data-i18n="secEdu">Educație</span><svg
+                    class="chevron" aria-hidden="true" viewBox="0 0 20 20">
                     <path fill-rule="evenodd"
                         d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                </svg></div>
-            <div class="sec__body"><button class="btn btn--ol btn--sm btn--self" id="addEdu" data-i18n="btnAddEdu">+ Adaugă Educație</button>
+                </svg></button>
+            <div class="sec__body"><button type="button" class="btn btn--ol btn--sm btn--self" id="addEdu" data-i18n="btnAddEdu">+ Adaugă Educație</button>
                 <div id="eduCont"></div>
             </div>
         </div>
 
         <!-- ACCORDION: CERTIFICARI -->
         <div class="sec" data-id="cert">
-            <div class="sec__hd"><span class="sec__icon">📜</span><span class="sec__label" data-i18n="secCert">Certificări</span><svg
-                    class="chevron" viewBox="0 0 20 20">
+            <button type="button" class="sec__hd" aria-expanded="false"><span class="sec__icon" aria-hidden="true">📜</span><span class="sec__label" data-i18n="secCert">Certificări</span><svg
+                    class="chevron" aria-hidden="true" viewBox="0 0 20 20">
                     <path fill-rule="evenodd"
                         d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                </svg></div>
-            <div class="sec__body"><button class="btn btn--ol btn--sm btn--self" id="addCert" data-i18n="btnAddCert">+ Adaugă Certificare</button>
+                </svg></button>
+            <div class="sec__body"><button type="button" class="btn btn--ol btn--sm btn--self" id="addCert" data-i18n="btnAddCert">+ Adaugă Certificare</button>
                 <div id="certCont"></div>
             </div>
         </div>
 
         <!-- ACCORDION: LIMBI -->
         <div class="sec" data-id="lang">
-            <div class="sec__hd"><span class="sec__icon">🌐</span><span class="sec__label" data-i18n="secLang">Limbi Străine</span><svg
-                    class="chevron" viewBox="0 0 20 20">
+            <button type="button" class="sec__hd" aria-expanded="false"><span class="sec__icon" aria-hidden="true">🌐</span><span class="sec__label" data-i18n="secLang">Limbi Străine</span><svg
+                    class="chevron" aria-hidden="true" viewBox="0 0 20 20">
                     <path fill-rule="evenodd"
                         d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                </svg></div>
-            <div class="sec__body"><button class="btn btn--ol btn--sm btn--self" id="addLang" data-i18n="btnAddLang">+ Adaugă Limbă</button>
+                </svg></button>
+            <div class="sec__body"><button type="button" class="btn btn--ol btn--sm btn--self" id="addLang" data-i18n="btnAddLang">+ Adaugă Limbă</button>
                 <div id="langCont"></div>
             </div>
         </div>
 
         <!-- ACCORDION: COMPETENTE -->
         <div class="sec" data-id="skills">
-            <div class="sec__hd"><span class="sec__icon">⚙️</span><span class="sec__label" data-i18n="secSkills">Competențe</span><svg
-                    class="chevron" viewBox="0 0 20 20">
+            <button type="button" class="sec__hd" aria-expanded="false"><span class="sec__icon" aria-hidden="true">⚙️</span><span class="sec__label" data-i18n="secSkills">Competențe</span><svg
+                    class="chevron" aria-hidden="true" viewBox="0 0 20 20">
                     <path fill-rule="evenodd"
                         d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                </svg></div>
+                </svg></button>
             <div class="sec__body">
-                <div class="skill-row"><input type="text" id="in-skill" class="field__inp"
-                        placeholder="Ex: React, Node.js, Python" autocomplete="off" data-i18n-ph="phSkill"><button class="btn btn--sm"
+                <div class="skill-row"><input type="text" id="in-skill" class="field__inp" aria-label="Competență nouă"
+                        placeholder="Ex: React, Node.js, Python" autocomplete="off" data-i18n-ph="phSkill"><button type="button" class="btn btn--sm"
                         id="addSkill" data-i18n="btnAddSkill">Adaugă</button></div>
                 <div class="skills-wrap" id="skillsWrap"></div>
             </div>
@@ -427,7 +444,7 @@
 
         <!-- COMPACT ATS PANEL -->
         <div class="ats" id="atsPanel">
-            <div class="ats__hd" id="atsHd"><span>📊</span><span class="ats__title" data-i18n="atsTitle">Compatibilitate Sistem ATS</span><span class="ats__arr">▲</span></div>
+            <button type="button" class="ats__hd" id="atsHd" aria-expanded="false"><span aria-hidden="true">📊</span><span class="ats__title" data-i18n="atsTitle">Compatibilitate Sistem ATS</span><span class="ats__arr" aria-hidden="true">▲</span></button>
             <div class="ats__body">
                 <div class="ats-score-row">
                     <div class="ats-badge empty" id="atsBadge">--</div>
@@ -461,7 +478,7 @@
         <div class="cv-wrap">
             <div class="cv-doc" id="cvDoc">
                 <div class="cv-hdr">
-                    <img id="cv-photo" class="cv-photo" src="" alt="Fotografie profil">
+                    <img id="cv-photo" class="cv-photo hidden" alt="Fotografie profil">
                     <div class="cv-meta">
                         <div class="cv-name" id="cv-name"></div>
                         <div class="cv-role-row">
@@ -499,7 +516,7 @@
                     <div class="cv-sec__title" data-i18n="cvSkills">Competențe Tehnice &amp; Soft Skills</div>
                     <div class="cv-pills" id="cv-skills"></div>
                 </div>
-                <div class="cv-watermark" id="cvWatermark">Creat cu CV Builder Pro | domeniultau.ro</div>
+                <div class="cv-watermark" id="cvWatermark">Creat cu CV Builder Pro | cvsmartats.web.app</div>
             </div>
         </div>
     </section>

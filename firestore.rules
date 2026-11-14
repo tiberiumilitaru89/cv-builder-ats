@@ -11,12 +11,15 @@ service cloud.firestore {
       // are dreptul să modifice statutul PRO sau creditele de export.
       allow write: if false;
 
-      // Draft-uri & Versiuni CV salvate în Cloud (Strict Ownership + Schema Validation)
+      // Draft-uri & Versiuni CV salvate în Cloud (Strict Ownership + Schema & Size Validation)
       match /drafts/{draftId} {
         allow read: if request.auth != null && request.auth.uid == userId;
-        allow write: if request.auth != null
-                     && request.auth.uid == userId
-                     && request.resource.data.keys().hasOnly(['updatedAt', 'cvData', 'name']);
+        allow create, update: if request.auth != null
+                              && request.auth.uid == userId
+                              && request.resource.data.keys().hasOnly(['updatedAt', 'cvData', 'name'])
+                              && request.resource.data.cvData is map
+                              && (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() <= 120));
+        allow delete: if request.auth != null && request.auth.uid == userId;
       }
     }
 
@@ -24,6 +27,15 @@ service cloud.firestore {
     match /credit_ledger/{entryId} {
       allow read: if request.auth != null && request.auth.uid == resource.data.uid;
       allow write: if false;
+    }
+
+    // Colecții interne Admin-only (Webhook idempotency & Audit Trail SOC 2)
+    match /processed_stripe_events/{eventId} {
+      allow read, write: if false;
+    }
+
+    match /audit_logs/{logId} {
+      allow read, write: if false;
     }
 
     // Blocare implicită pentru orice altă colecție nedeclarată
